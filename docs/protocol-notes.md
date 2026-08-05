@@ -50,7 +50,9 @@ This produces observed command banks `0x2000`, `0x2080`, `0x2100`, `0x2180`,
 
 BAR0 `0x2200` is the DMA-control shadow. The cold value is `0x0001fe00`.
 Bounded experiments used `0x0001fe01`, `0x00000001`, and `0x00000003` to
-pulse reset, retain the global bit, and enable only DSP0.
+pulse reset, retain the global bit, and enable only DSP0. Static analysis shows
+that the official shadow begins at `0x00000001`; each DSP adds bit
+`1 << (dsp_index + 1)`, reaching `0x000001ff` for eight initialized DSPs.
 
 The official driver assigns five interrupt vectors per DSP. DSP0 uses command
 vector 0, response vector 1, and callback vectors 2 through 4. The low interrupt
@@ -69,10 +71,15 @@ The command hardware read index advanced in the executed experiment. The
 response index stayed at zero and the payload canary was untouched. This is a
 transport observation, not evidence that the command was successfully decoded.
 
-## Known initialization gap
+## Device startup
 
-The official per-DSP start path publishes four pages for both rings before it
-enables the DSP DMA bit. It is reached after additional device-level setup.
-Experiments 009 and 010 exposed only response page zero and used a different
-ordering. Since the complete earlier setup is not bounded yet, a simple retry
-with more pages is intentionally deferred.
+The official startup path is now ordered statically: clear interrupt state,
+pulse and retain DMA state, acknowledge low interrupts, initialize every DSP's
+command and response rings before adding its DMA bit, publish two shared 4 MiB
+DMA tables, then enable shared interrupt vector 40. See
+[`device-startup-sequence.md`](device-startup-sequence.md).
+
+Experiments 009 and 010 exposed only response page zero and enabled DSP0 DMA
+before ring publication completed. Experiment 011 isolates the corrected
+four-page ring initialization while deliberately keeping DMA disabled and
+submitting no command.

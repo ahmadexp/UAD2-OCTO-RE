@@ -12,7 +12,9 @@ python3 tools/inspect_official_driver.py /path/to/UAD2Pcie.sys
 ```
 
 It refuses any other hash and verifies the PE instruction bytes supporting the
-offset, ring-size, interrupt, and query constants below.
+offset, ring-size, startup, interrupt, and query constants below. The full
+ordered startup reconstruction is in
+[`device-startup-sequence.md`](device-startup-sequence.md).
 
 ## Ring class
 
@@ -48,11 +50,17 @@ enabled before ring publication completed. Entry zero still resides in the
 published response page, but exact reproduction requires all four pages and
 the official ordering.
 
-The higher device-start path at `0x1400054b8` also programs interrupt-manager
-state and runs additional device-level initialization before invoking the
-per-DSP start routine. Those prerequisites are not yet reduced to a bounded
-MMIO and command sequence. This is why Experiment 010 is not followed directly
-by a four-response-page retry.
+The resume/start path at `0x140007bc8` clears interrupt state, pulses DMA reset,
+acknowledges low interrupt bits, starts every reported DSP, publishes two
+shared 4 MiB DMA tables, and enables shared interrupt vector 40. The interrupt
+manager's DMA shadow begins at one. Each per-DSP start adds bit
+`1 << (dsp_index + 1)`, producing `0x00000003` after DSP 0 and
+`0x000001ff` after all eight cores.
+
+The complete order is statically bounded, but not every stage is safe to
+execute as a single experiment yet. Experiment 011 therefore reproduces only
+the official command and response ring initializer with DMA disabled and no
+command submission.
 
 ## Query 026 ABI
 

@@ -22,11 +22,79 @@ SIGNATURES = (
     (0x14000A54F, bytes.fromhex("448d048d01000000"), "response vector adds one"),
     (0x14000B926, bytes.fromhex("4881c108220000"), "armed interrupt bits are written at BAR +0x2208"),
     (0x14000B939, bytes.fromhex("4881c104220000"), "interrupt enable shadow is written at BAR +0x2204"),
+    (0x14000BA1A, bytes.fromhex("c783bc04000001000000"), "interrupt manager initializes the DMA shadow to global bit one"),
     (0x14001059F, bytes.fromhex("4183cc01"), "short-command helper ORs command with one"),
     (0x14000F54B, bytes.fromhex("ba00002600"), "query 026 command base is 0x00260000"),
     (0x14000F550, bytes.fromhex("41b805000c80"), "query 026 response header is 0x800c0005"),
     (0x14000F5BB, bytes.fromhex("ba00002700"), "query 027 command base is 0x00270000"),
     (0x14000F5C0, bytes.fromhex("41b802000d80"), "query 027 response header is 0x800d0002"),
+    (0x14000BCA3, bytes.fromhex("4881c104220000"), "interrupt reset clears BAR +0x2204"),
+    (0x14000BCB5, bytes.fromhex("4881c108220000"), "interrupt reset clears BAR +0x2208"),
+    (0x14000BEDD, bytes.fromhex("81e201feffff"), "modern DMA reset preserves only mask 0xfffffe01"),
+    (0x14000BEE3, bytes.fromhex("81ca00fe0100"), "modern DMA reset asserts mask 0x0001fe00"),
+    (0x14000BEF6, bytes.fromhex("bf00220000"), "DMA shadow is written at BAR +0x2200"),
+    (0x140007CC2, bytes.fromhex("488d8a20220000"), "resume path first targets BAR +0x2220"),
+    (0x140007CF9, bytes.fromhex("4881c108220000"), "resume path acknowledges all low interrupt bits at BAR +0x2208"),
+    (0x140007D1E, bytes.fromhex("e8a5290000"), "resume path calls per-DSP start in a loop"),
+    (0x140007D3F, bytes.fromhex("e840acffff"), "resume path initializes shared DMA tables after DSP rings"),
+    (0x14000A6F2, bytes.fromhex("4183f904"), "per-DSP start splits ring banks at DSP index four"),
+    (0x14000A81D, bytes.fromhex("e85a1c0000"), "per-DSP start initializes the command ring first"),
+    (0x14000A871, bytes.fromhex("4883c240"), "response ring window is command ring plus 0x40"),
+    (0x14000A875, bytes.fromhex("e8021c0000"), "per-DSP start initializes the response ring second"),
+    (0x14000B1DB, bytes.fromhex("4881c1a4010000"), "DSP boot polling reads each core's status offset +0x1a4"),
+    (0x14000B28F, bytes.fromhex("4184d9"), "DSP boot polling requires ready bit zero to be set"),
+    (0x14000B713, bytes.fromhex("8d4f01"), "DSP DMA bit position is DSP index plus one"),
+    (0x14000B721, bytes.fromhex("0983bc040000"), "DSP DMA bit is accumulated in the DMA shadow"),
+    (0x140002B3D, bytes.fromhex("8d8f00800000"), "first shared DMA table begins at BAR +0x8000"),
+    (0x140002B80, bytes.fromhex("8d8f00a00000"), "second shared DMA table begins at BAR +0xa000"),
+    (0x140002BB8, bytes.fromhex("81fd00004000"), "shared DMA tables describe 4 MiB per direction"),
+    (0x140002C3D, bytes.fromhex("ba28000000"), "shared DMA setup enables interrupt vector 40"),
+)
+
+
+STARTUP_SEQUENCE = (
+    {
+        "stage": 1,
+        "name": "quiesce_notification_path",
+        "operation": "write BAR +0x2220 = 0",
+        "source_function": "0x140007bc8",
+    },
+    {
+        "stage": 2,
+        "name": "clear_interrupt_state",
+        "operation": "write zero to BAR +0x2204 and +0x2208, plus extended registers when present",
+        "source_function": "0x14000bc64",
+    },
+    {
+        "stage": 3,
+        "name": "reset_dma_engines",
+        "operation": "assert modern reset mask at BAR +0x2200, then write the retained DMA shadow",
+        "source_function": "0x14000bea0",
+    },
+    {
+        "stage": 4,
+        "name": "acknowledge_low_interrupts",
+        "operation": "write 0xffffffff to BAR +0x2208",
+        "source_function": "0x140007bc8",
+    },
+    {
+        "stage": 5,
+        "name": "start_each_dsp",
+        "operation": "for each reported DSP, initialize command then response ring and add its DMA bit",
+        "source_function": "0x14000a6c8",
+    },
+    {
+        "stage": 6,
+        "name": "initialize_shared_dma",
+        "operation": "publish two 4 MiB page tables at BAR +0x8000 and +0xa000",
+        "source_function": "0x140002984",
+    },
+    {
+        "stage": 7,
+        "name": "enable_shared_dma_interrupt",
+        "operation": "enable and arm interrupt vector 40",
+        "source_function": "0x140002984",
+    },
 )
 
 
@@ -85,7 +153,7 @@ class PEImage:
         raise ValueError(f"address 0x{address:x} is outside mapped PE sections")
 
 
-def inspect(path: pathlib.Path) -> dict:
+def inspect(path: pathlib.Path, file_label: str | None = None) -> dict:
     data = path.read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     if digest != KNOWN_SHA256:
@@ -107,21 +175,27 @@ def inspect(path: pathlib.Path) -> dict:
             }
         )
     return {
-        "file": path.name,
+        "file": file_label or path.name,
         "sha256": digest,
         "image_base": f"0x{image.image_base:016x}",
         "signature_count": len(checks),
         "all_signatures_match": all(check["matches"] for check in checks),
         "signatures": checks,
+        "startup_sequence": STARTUP_SEQUENCE,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("driver", type=pathlib.Path, help="path to UAD2Pcie.sys")
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="stable non-path label to place in JSON output",
+    )
     args = parser.parse_args()
     try:
-        result = inspect(args.driver)
+        result = inspect(args.driver, args.label)
     except (OSError, ValueError) as error:
         print(f"refusing: {error}", file=sys.stderr)
         return 1

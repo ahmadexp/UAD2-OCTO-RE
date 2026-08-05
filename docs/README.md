@@ -13,6 +13,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`experiment-methodology.md`](experiment-methodology.md): experiment gates and recovery rules
 - [`register-hypotheses.md`](register-hypotheses.md): register map with confidence labels
 - [`official-driver-static-analysis.md`](official-driver-static-analysis.md): reproducible static findings
+- [`device-startup-sequence.md`](device-startup-sequence.md): ordered official startup state machine
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 
 ## Captured baselines
@@ -36,6 +37,7 @@ card recovered. It does not imply that later or broader operations are safe.
 | 008 | [`experiment-008-zero-entry-fetch.md`](experiment-008-zero-entry-fetch.md) | [`experiment-008-result.json`](experiment-008-result.json) | Hardware read index advanced |
 | 009 | [`experiment-009-official-query.md`](experiment-009-official-query.md) | Included in procedure | Command dequeued, no response |
 | 010 | [`experiment-010-official-query-interrupt-gates.md`](experiment-010-official-query-interrupt-gates.md) | [`experiment-010-result.json`](experiment-010-result.json) | Interrupt mask accepted, no response |
+| 011 | [`experiment-011-official-ring-initializer.md`](experiment-011-official-ring-initializer.md) | Not executed | Prepared no-command official ring order |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

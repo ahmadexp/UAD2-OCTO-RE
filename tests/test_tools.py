@@ -84,10 +84,14 @@ class OfficialDriverInspectorTests(unittest.TestCase):
     def test_signatures_are_nonempty_and_have_unique_addresses(self):
         module = load_tool("inspect_official_driver")
         addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
-        self.assertEqual(len(addresses), 14)
+        self.assertEqual(len(addresses), 36)
         self.assertEqual(len(addresses), len(set(addresses)))
         self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
         self.assertEqual(len(module.KNOWN_SHA256), 64)
+        self.assertEqual(
+            [stage["stage"] for stage in module.STARTUP_SEQUENCE],
+            list(range(1, 8)),
+        )
 
     def test_unknown_driver_hash_is_refused(self):
         module = load_tool("inspect_official_driver")
@@ -96,6 +100,22 @@ class OfficialDriverInspectorTests(unittest.TestCase):
             candidate.flush()
             with self.assertRaisesRegex(ValueError, "driver hash is not the analyzed"):
                 module.inspect(pathlib.Path(candidate.name))
+
+
+class Experiment011SourceTests(unittest.TestCase):
+    def test_probe_stays_below_dma_and_command_boundary(self):
+        source = (ROOT / "tools" / "vfio_official_ring_init.c").read_text()
+        self.assertIn("#define PAGE_COUNT 8", source)
+        self.assertNotIn("mmio_write32(bar, DMA_CONTROL", source)
+        self.assertNotIn("0x2204", source)
+        self.assertNotIn("0x2208", source)
+        self.assertIn('\\"command_entries_submitted\\": 0', source)
+
+    def test_command_ring_is_initialized_before_response_ring(self):
+        source = (ROOT / "tools" / "vfio_official_ring_init.c").read_text()
+        command = source.index("initialize_ring(bar, DSP0_CMD_BASE")
+        response = source.index("initialize_ring(bar, DSP0_RESP_BASE")
+        self.assertLess(command, response)
 
 
 if __name__ == "__main__":
