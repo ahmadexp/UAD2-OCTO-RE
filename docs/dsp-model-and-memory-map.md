@@ -9,6 +9,13 @@ with that processor family. This is strong static evidence, but it is not yet
 an optical part-number reading from this exact board. The package markings in
 the available photograph are not legible enough to make that final distinction.
 
+Universal Audio's [official UAD-2 PCIe product page](https://www.uaudio.com/products/uad2-pcie)
+confirms that the OCTO configuration contains eight SHARC processors. The
+provided repository photograph is 800 by 640 pixels and resolves all eight
+large DSP packages, but not their laser markings. It therefore proves count
+and board placement, not the exact ordering code, temperature grade, or package
+suffix. A perpendicular macro image of one package is still required.
+
 The [Analog Devices product page](https://www.analog.com/en/products/adsp-21469.html)
 describes a 450 MHz 32/40-bit floating-point SHARC processor with 5 Mbits of
 on-chip RAM, DDR2 support, two link ports, 48-bit instructions, and 16/32-bit
@@ -70,4 +77,3 @@ recover which regions the resident framework reserves, the plug-in overlay
 layout, entry-point conventions, inter-core sharing, and the FPGA-visible host
 window. No heartbeat should be linked until those board-specific reservations
 are derived from a real loader transaction or decoded executable container.
-

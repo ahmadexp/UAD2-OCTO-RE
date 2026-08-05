@@ -1,0 +1,157 @@
+{
+  "adjacent_generation_1_2_pairs": {
+    "core_equal_byte_fraction": {
+      "count": 39,
+      "maximum": 0.015152,
+      "mean": 0.004227,
+      "minimum": 0.0
+    },
+    "core_xor_entropy_bits_per_byte": {
+      "count": 39,
+      "maximum": 7.996917,
+      "mean": 7.584978,
+      "minimum": 6.097616
+    },
+    "count": 39,
+    "same_file_size": 21,
+    "same_preserved_size": 39,
+    "same_resource_id": 8
+  },
+  "aligned_16_byte_block_tests": {
+    "distinct_blocks_shared_by_multiple_unique_resources": 0,
+    "duplicate_fraction_within_unique_resource": {
+      "count": 69,
+      "maximum": 0.0,
+      "mean": 0.0,
+      "minimum": 0.0
+    },
+    "maximum_unique_resource_owners_for_one_block": 0
+  },
+  "direct_sha256_hypotheses": {
+    "prefix_first_32_equals_sha256_replacement_region": {
+      "eligible": 87,
+      "matches": 0
+    },
+    "prefix_last_32_equals_sha256_earlier_prefix_and_replacement_region": {
+      "eligible": 87,
+      "matches": 0
+    },
+    "prefix_last_32_equals_sha256_outer_header_and_replacement_region": {
+      "eligible": 87,
+      "matches": 0
+    },
+    "prefix_last_32_equals_sha256_replacement_region": {
+      "eligible": 87,
+      "matches": 0
+    }
+  },
+  "distributions": {
+    "dsp_generation": {
+      "0": 9,
+      "1": 39,
+      "2": 39
+    },
+    "opaque_prefix_bytes_after_header": {
+      "32": 56,
+      "48": 29,
+      "96": 2
+    },
+    "payload_form": {
+      "0": 87
+    },
+    "preserved_bytes_including_header": {
+      "116": 2,
+      "52": 56,
+      "68": 29
+    },
+    "replacement_region_size_mod_16": {
+      "0": 36,
+      "12": 11,
+      "4": 20,
+      "8": 20
+    },
+    "resource_type": {
+      "0": 78,
+      "1": 3,
+      "2": 5,
+      "3": 1
+    }
+  },
+  "duplicate_instances": 18,
+  "entropy_bits_per_byte": {
+    "inner_core": {
+      "count": 69,
+      "maximum": 7.997328,
+      "mean": 7.608898,
+      "minimum": 6.160432
+    },
+    "opaque_prefix": {
+      "count": 69,
+      "maximum": 6.264599,
+      "mean": 5.046365,
+      "minimum": 4.66391
+    }
+  },
+  "files_with_resources": 6,
+  "inner_core_start_magic": {
+    "bzip2": 0,
+    "elf": 0,
+    "gzip": 0,
+    "lz4_frame": 0,
+    "xz": 0,
+    "zip": 0,
+    "zlib_78_01": 0,
+    "zlib_78_9c": 0,
+    "zlib_78_da": 0,
+    "zstd": 0
+  },
+  "inner_core_zlib_size_ratio": {
+    "count": 69,
+    "maximum": 1.130952,
+    "mean": 1.022522,
+    "minimum": 1.000455
+  },
+  "input_files": 74,
+  "resource_instances": 87,
+  "schema": 2,
+  "simple_32_bit_metadata_hypotheses": {
+    "adler32_body": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "adler32_core": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "attributes": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "core_size_bytes": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "crc32_body": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "crc32_core": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "resource_file_size_bytes": {"eligible": 69, "matches_any_prefix_dword": 0},
+    "resource_id": {"eligible": 69, "matches_any_prefix_dword": 0}
+  },
+  "standard_digest_subsequence_hypotheses": {
+    "blake2b_inner_core": {"eligible": 2, "matches_anywhere_in_prefix": 0},
+    "blake2b_outer_header_and_inner_core": {"eligible": 2, "matches_anywhere_in_prefix": 0},
+    "blake2s_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "blake2s_outer_header_and_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "md5_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "md5_outer_header_and_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha1_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha1_outer_header_and_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha224_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha224_outer_header_and_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha256_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha256_outer_header_and_inner_core": {"eligible": 69, "matches_anywhere_in_prefix": 0},
+    "sha384_inner_core": {"eligible": 19, "matches_anywhere_in_prefix": 0},
+    "sha384_outer_header_and_inner_core": {"eligible": 19, "matches_anywhere_in_prefix": 0},
+    "sha512_inner_core": {"eligible": 2, "matches_anywhere_in_prefix": 0},
+    "sha512_outer_header_and_inner_core": {"eligible": 2, "matches_anywhere_in_prefix": 0}
+  },
+  "successful_standard_decompression": {},
+  "unique_resource_sha256": 69,
+  "unique_values_by_first_eight_prefix_dwords": {
+    "0x00": 69,
+    "0x04": 69,
+    "0x08": 69,
+    "0x0c": 69,
+    "0x10": 69,
+    "0x14": 69,
+    "0x18": 69,
+    "0x1c": 69
+  }
+}

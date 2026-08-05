@@ -100,10 +100,35 @@ reservations. See
 complete all-eight-DSP map. A first pool-0 allocation therefore receives
 offset `0x4000` when the runtime pool is otherwise empty.
 
-The completion parser recognizes a four-dword response with header
-`0x80020044`, zero in dwords one and two, and status class `0xf0060000` in the
-upper 16 bits of dword three. The low status code is mapped to a host error.
-No such completion has yet been received from the OCTO.
+The payload copy loop uses at most `0x400` dwords per DMA object, so every copy
+is bounded to 4 KiB. After queuing the response and command objects, the
+ordinary wait mode allows ten attempts with a 600 ms interval. During that
+loop the driver also issues operation 13 with a four-byte output. The meaning
+of that four-byte status remains unnamed.
+
+Two response forms can terminate the wait path:
+
+- `0x80070004`, word one zero, and word two equal to the resource ID is
+  accepted as an intermediate resource-specific success;
+- final completion uses header `0x80020044`, zero in words one and two, and
+  status class `0xf0060000` in the upper 16 bits of word three.
+
+The final low status-code mapping is exact:
+
+| Low code | Host result |
+|---:|---:|
+| `0x0001` | `-91` |
+| `0x0002` | `-109` |
+| `0x0003` | `-93` |
+| `0x0004` | `-97` |
+| `0x0005` | `-98` |
+| `0x0008` | `-122` |
+| `0x0009` | `-123` |
+
+An all-zero four-dword response maps to `-38`; any other malformed response
+maps to `-50`. A separate earlier response branch recognizes status class
+`0xf0010000` in word one. Its low-code meanings are not yet named. No valid
+resource response of either success form has been received from the OCTO.
 
 The offline tool can construct the exact envelope when a known allocation
 offset and pool direction are supplied:
@@ -141,6 +166,61 @@ payloads. The inventory confirms DSP-generation-two resources and resource
 types 0 through 3, but the inner bodies remain opaque. See
 [`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md).
 
+Across the 87 official instances, the bytes preserved before the declared
+trailing region are not one fixed length. Subtracting the 20-byte outer header
+leaves opaque prefixes of 32 bytes in 56 instances, 48 bytes in 29 instances,
+and 96 bytes in two instances. The declared trailing region is not uniformly
+16-byte aligned. Its size modulo 16 is 0 for 36 instances, 4 for 20, 8 for 20,
+and 12 for 11.
+
+Four direct SHA-256 layouts were tested for every instance and matched none:
+
+- first 32 prefix bytes equal `SHA256(trailing_region)`;
+- last 32 prefix bytes equal `SHA256(trailing_region)`;
+- last 32 prefix bytes equal `SHA256(outer_header || trailing_region)`;
+- last 32 prefix bytes equal
+  `SHA256(prefix_before_last_32 || trailing_region)`.
+
+For the 69 unique resource hashes, every one of the first eight prefix dword
+positions also has 69 distinct values. These results reject simple cleartext
+digest layouts. They do not distinguish a signature from encrypted metadata,
+a keyed authenticator, compressed state, or ordinary high-entropy program
+data.
+
+## Corpus-wide inner-core tests
+
+The second analysis pass treats the bytes after the preserved prefix as the
+unknown inner core and reports aggregate measurements only. It does not emit
+vendor bytes. Across the 69 unique resources:
+
+- inner-core entropy ranges from 6.160432 to 7.997328 bits per byte, with a
+  mean of 7.608898;
+- maximum-level zlib output ranges from 1.000455 to 1.130952 times the input,
+  with a mean of 1.022522, so none of the cores becomes smaller;
+- none starts with ELF, gzip, xz, bzip2, ZIP, zlib, LZ4-frame, or Zstandard
+  magic, and no standard decompressor candidate succeeds;
+- no resource repeats an aligned 16-byte block internally;
+- no aligned 16-byte core block is shared by two different unique resources;
+- CRC-32 and Adler-32 of either the core or complete body match no dword in
+  the corresponding prefix;
+- resource ID, attributes, core size, and file size likewise match no prefix
+  dword;
+- MD5, SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, BLAKE2s, and BLAKE2b of the
+  core or `outer_header || core` occur nowhere in any eligible prefix.
+
+The cabinet also provides exactly 39 adjacent generation-1/generation-2
+pairs. All 39 pairs use the same prefix size, 21 have equal total size, and
+eight retain the same resource ID. Their overlapping cores share only 0 to
+1.5152 percent of bytes, with a mean of 0.4227 percent, close to chance for
+unrelated byte streams. XOR entropy averages 7.584978 bits per byte.
+
+Together, these results strongly reject an uncompressed clear SHARC image,
+ECB-like repeated-block encoding, and several simple embedded checksum or
+digest layouts. They are consistent with encryption, high-entropy compression,
+or another keyed encoding, but do not identify which. In particular, they do
+not reveal a key, authentication rule, relocation table, segment table, or
+entry point. Those rules remain on the DSP-side consumer path.
+
 ## Proven and unresolved
 
 Confirmed statically:
@@ -149,6 +229,8 @@ Confirmed statically:
 - Exact payload-form branch and deterministic tail replacement algorithm.
 - Exact two-dword resource envelope and free-list allocation direction.
 - Exact structural checks for the four-dword completion.
+- Exact 4 KiB resource-copy limit, bounded wait, intermediate success form,
+  final status mapping, and malformed-response errors.
 - Absence of host-side cryptographic verification in this parser.
 - Resource transport response header and status class.
 
@@ -158,3 +240,9 @@ Still unresolved:
 - Segment and relocation records inside that core, if any.
 - DSP-side validation or authentication.
 - OCTO-specific resource IDs, entry points, and memory reservations.
+
+The loader findings are independently checked by the hash-locked verifier:
+
+```bash
+python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
+```

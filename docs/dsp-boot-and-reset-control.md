@@ -45,6 +45,34 @@ The global startup reset sequence uses `0x0001fe01` then `0x00000001`. The
 fully enabled OCTO shadow is `0x000001ff`. The cold post-reset observation is
 `0x0001fe00`.
 
+## Firmware-aware hard reset
+
+The exact UAD 11.0.1 Windows PCIe driver and the hash-identified symbolized
+macOS driver independently expose a second reset decision above the per-engine
+DMA controls.
+
+`LoadFirmware` sets host object field `+0x0c38` before it sends command
+`0x00120000`. The later hard-reset routine tests that field:
+
+- when clear, the Windows implementation samples each reported DSP at per-DSP
+  `+0x1a4`, writes one to BAR `+0x221c`, holds it for `0x2710` timer ticks,
+  then writes zero. The macOS implementation independently confirms the one,
+  then zero pulse at `+0x221c`;
+- when set, both implementations skip the ordinary pulse and write
+  `0x0be0deaf` to DSP0 MMIO `+0x1a8`.
+
+The repeated cross-platform constant and branch establish the host behavior.
+They do not establish the device-side meaning of `0x0be0deaf`. It may select a
+firmware activation, commit, reboot, or recovery path. The updater's restart
+requirement makes a persistent interpretation plausible, so this write is
+outside the current experiment boundary.
+
+The flag is set before the block helper returns. A failed or timed-out load is
+therefore not evidence that the magic write is safe or useful. The next lawful
+trace must record whether a successful official load is followed by this hard
+reset during driver stop or system restart, and what the device reports after
+the subsequent cold initialization.
+
 ## Hardware validation
 
 Experiment 017 started all 16 empty rings, then applied the official per-DSP
@@ -57,4 +85,3 @@ separate read-only probe confirmed the cold state.
 This validates FPGA DMA-engine isolation and recovery. It does not yet prove
 isolation of arbitrary SHARC programs or a core-local recovery from a hung
 program. Those require a known-safe runtime image and heartbeat first.
-

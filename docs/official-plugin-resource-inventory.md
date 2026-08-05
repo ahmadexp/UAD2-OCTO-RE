@@ -34,18 +34,65 @@ all of these objects byte for byte. The recovered deterministic tail-
 replacement branch is valid driver behavior, but it is not exercised by this
 inventory.
 
-The bytes after each 20-byte outer header remain high entropy, including the
-small fixed-length prefix that precedes the declared trailing-dword region.
-No visible segment address, relocation table, entry point, or public-key
-signature structure is exposed at this layer. Those semantics may be encoded
-in the opaque body or interpreted only by the DSP-side framework.
+The bytes after each 20-byte outer header remain opaque. The prefix before the
+declared trailing-dword region is not one fixed size:
 
-Resource `0x0000012b`, generation 2, is a 452-byte form-zero object with SHA-256
-`ff60952444ae492aa1a8b85dae686ad8445b9971260174202ad1ce13c73ba02d`.
-It is byte-identical to the related prior capture, but that prior work labels
-it as a talkback or monitor component. It is therefore useful as a transport
-fixture after a valid framework exists, not as a harmless general-purpose
-heartbeat.
+| Opaque prefix after outer header | Instances |
+|---:|---:|
+| 32 bytes | 56 |
+| 48 bytes | 29 |
+| 96 bytes | 2 |
+
+The trailing region is not uniformly 16-byte aligned: its byte length modulo
+16 is 0 for 36 instances, 4 for 20, 8 for 20, and 12 for 11. Across the 69
+unique resources, every one of the first eight prefix dword positions has 69
+distinct values.
+
+Four direct SHA-256 candidates were tested across all 87 instances: a digest
+of the trailing region in the first or last 32 prefix bytes, a digest of outer
+header plus trailing region, and a digest of the earlier prefix plus trailing
+region. Every candidate produced zero matches. No visible segment address,
+relocation table, entry point, or recognizable public-key signature structure
+is exposed at this layer. The negative digest result does not prove encryption
+or the absence of DSP-side authentication.
+
+The expanded metadata-only analysis also finds no standard digest of the core
+or `outer_header || core` anywhere in the eligible prefixes, no CRC-32 or
+Adler-32 match in any prefix dword, no common compression magic, no aligned
+16-byte block repetition, and no aligned block shared by two unique cores.
+The 69 unique cores have mean entropy 7.608898 bits per byte and do not become
+smaller under maximum-level zlib compression. All 39 adjacent generation
+pairs have the same prefix size, but their core byte equality averages only
+0.4227 percent. These are strong negative format tests, not proof of a
+particular cipher or authentication design. Full measurements are recorded in
+[`bill-structure-11.0.1.json`](bill-structure-11.0.1.json).
+
+## Exact public-corpus counterparts
+
+The public [Open Apollo header](https://github.com/rolotrealanis98/open-apollo/blob/29a22b1254393488c5a5f55eb11db77c4d0251f9/driver/ua_dsp_programs.h)
+at commit `29a22b1254393488c5a5f55eb11db77c4d0251f9` contains five related captures.
+All five have exact UAD 11.0.1 cabinet counterparts when matched by the low 24
+bits of resource ID, DSP generation, and size:
+
+| Official ID | Public ID | Size | Public label |
+|---:|---:|---:|---|
+| `0x000000a5` | `0x020000a5` | 1940 | mixer core |
+| `0x000000c2` | `0x020000c2` | 184 | output routing |
+| `0x000000db` | `0x020000db` | 728 | capture routing |
+| `0x000000eb` | `0x020000eb` | 716 | input routing |
+| `0x0000012b` | `0x0200012b` | 452 | talkback or monitor |
+
+In each pair, byte offset seven is the only difference: the public resource ID
+has high byte `0x02`, while the cabinet ID has high byte zero. Every byte from
+offset eight through end of file is identical, including attributes, prefix,
+and complete inner core. This corrects the earlier overbroad statement that
+the complete `0x12b` objects were byte-identical.
+
+The public labels and related Apollo x4 runtime addresses are useful semantic
+correlations, not a decode of the inner core and not OCTO memory-map proof. The
+source of the resource-ID high-byte normalization is also not established for
+the Windows OCTO path. The hash-locked, metadata-only audit is recorded in
+[`public-bill-audit-2026-08-05.json`](public-bill-audit-2026-08-05.json).
 
 ## Reproduce the inventory
 
@@ -54,7 +101,15 @@ After extracting a user-owned copy of the 64-bit plug-in cabinet:
 ```bash
 python3 tools/scan_bill_resources.py --recursive /path/to/extracted-cabinet \
   > /tmp/uad2-bill-inventory.json
+
+python3 tools/analyze_bill_resources.py --recursive /path/to/extracted-cabinet \
+  > /tmp/uad2-bill-analysis.json
+
+python3 tools/audit_public_bill_corpus.py \
+  /path/to/open-apollo/driver/ua_dsp_programs.h \
+  /path/to/extracted-cabinet
 ```
 
 The scanner caps untrusted declared sizes at 1 MiB, rejects malformed objects,
-and never extracts payload bytes.
+and never extracts payload bytes. The aggregate output used for this note is
+preserved in [`bill-structure-11.0.1.json`](bill-structure-11.0.1.json).

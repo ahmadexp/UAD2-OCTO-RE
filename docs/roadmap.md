@@ -23,14 +23,18 @@ buffers, report completion, and recover from failure.
 
 - [x] Identify the ADSP-21469 family and transcribe its data-sheet memory map.
 - [ ] Confirm the exact package marking on the tested board.
-- [ ] Separate persistent FPGA firmware, DSP framework, and plug-in containers.
+- [x] Separate FPGA-image, DSP-framework, and plug-in container paths.
 - [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
+- [x] Inventory all 47 installer firmware containers, their build words,
+      compatibility IDs, declared sizes, entropy, and direct SHA-256 tail tests.
 - [ ] Determine whether executable containers are signed or authenticated.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
 - [x] Build a bounded offline wrapper parser with synthetic tests.
 - [x] Recover the `Bill` program-resource outer header and deterministic host
       tail transform, including the payload-form branch.
 - [x] Recover its two-dword transmit envelope and low/high free-list allocator.
+- [x] Recover 4 KiB copy limits, bounded completion waits, both accepted
+      response forms, and the exact final status mapping.
 - [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
       DSPs with a read-only VFIO snapshot.
 - [ ] Decode opaque payloads into segments and relocations, if those concepts
@@ -48,7 +52,7 @@ submission is paused pending proof of the persistence boundary.
 | Goal | Blocking evidence | Required evidence before implementation |
 |---|---|---|
 | Valid DSP response | Resident connect and query commands dequeue but never write the response ring | Identify and safely enter the runtime state that implements query services |
-| Payload authentication and transform | HBUT and official `Bill` bodies remain opaque; no host-side verifier was found for form-zero `Bill` objects | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
+| Payload authentication and transform | HBUT and official `Bill` bodies remain opaque. Digest, checksum, compression, block-repetition, and generation-pair tests reject simple clear layouts, and no host-side verifier was found for form-zero objects | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
 | Relocations and runtime reservations | Pool bounds are known, but no decoded segment, entry-point, or relocation record is visible | Decode one target-compatible program resource and correlate its allocations |
 | Harmless DSP0 program | No proven OCTO executable format or entry ABI exists | Valid framework response plus a decoded, target-specific minimal program format |
 | General-purpose job API | Program handles, completion IDs, and buffer ownership would currently be guesses | One real program load, bounded buffer exchange, and completion response |
@@ -57,6 +61,30 @@ submission is paused pending proof of the persistence boundary.
 
 The transport module remains fail-closed for program, buffer, submit, and wait
 operations until these evidence gates are met.
+
+Static work also proves that firmware operation `0x69` selects its own target
+method and does not automatically invoke operations `0x67` and `0x68` in the
+common dispatcher. Both recovered updater callers also dispatch the selected
+`FBUT`, `GBUT`, or `HBUT` directly without an automatic pre-operation or
+post-operation. The complete operation-`0x6f` path is recovered: it builds
+the system-information record from host state and BAR MMIO and never uses the
+DSP command ring. A live `0x6f` call is therefore not a remaining response
+milestone.
+
+Resource-manager properties 6, 7, and 8 are likewise host-side BAR or cached
+state reads. Their recovery explains the eleven-word pool capture but does not
+provide a runtime command or response service.
+
+A distinct kernel-lifecycle transition is now known. Ordinary hard reset
+pulses BAR `+0x221c`; after the firmware-load flag is set, hard reset writes
+`0x0be0deaf` to DSP0 `+0x1a8` instead. This cross-platform result narrows the
+boot state machine, but its potentially persistent device-side semantics must
+be traced after a successful official load before any reproduction.
+
+Detailed response-state evidence is in
+[`runtime-response-state.md`](runtime-response-state.md). The first-program,
+API capability, and 56-case isolation acceptance criteria are in
+[`program-execution-gates.md`](program-execution-gates.md).
 
 ## Phase 3: first controlled program
 

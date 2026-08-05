@@ -7,6 +7,9 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+TOOLS = ROOT / "tools"
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
 
 
 def load_tool(name: str):
@@ -118,6 +121,40 @@ class OfficialDriverInspectorTests(unittest.TestCase):
                 module.inspect(pathlib.Path(candidate.name))
 
 
+class FrameworkDriverInspectorTests(unittest.TestCase):
+    def test_signatures_symbols_and_tables_are_explicit(self):
+        module = load_tool("inspect_framework_driver")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 21)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertEqual(len(module.KNOWN_SHA256), 64)
+        self.assertEqual(len(module.PUBLIC_COMMIT), 40)
+        self.assertIn("__ZN11CPcieDevice13HardResetDSPsEv", module.SYMBOLS)
+        self.assertEqual(len(module.SWITCH_TABLE), 13 * 4)
+        self.assertEqual(module.PROPERTY_SIZES[6], 44)
+        self.assertEqual(
+            next(item for item in module.PROPERTY_PATHS if item["id"] == 6)["register_offsets"],
+            [
+                "0x010", "0x018", "0x014", "0x01c", "0x184", "0x18c",
+                "0x188", "0x190", "0x198", "0x194", "0x19c",
+            ],
+        )
+
+    def test_unknown_framework_driver_is_refused(self):
+        module = load_tool("inspect_framework_driver")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not the framework driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash is not the analyzed"):
+                module.inspect(pathlib.Path(candidate.name))
+
+    def test_macho_parser_rejects_invalid_input(self):
+        module = load_tool("inspect_framework_driver")
+        with self.assertRaisesRegex(ValueError, "truncated Mach-O"):
+            module.MachOImage(b"short")
+
+
 class StartupProfileTests(unittest.TestCase):
     def test_observed_octo_omits_audio_extension_and_compresses_vectors(self):
         module = load_tool("decode_startup_profile")
@@ -195,6 +232,164 @@ class UadContainerInspectorTests(unittest.TestCase):
             path.write_bytes(b"HBUT")
             with self.assertRaisesRegex(ValueError, "shorter than"):
                 module.inspect(path)
+
+
+class FirmwareInventoryTests(unittest.TestCase):
+    def test_timestamp_decoder_rejects_legacy_counter_and_decodes_build_time(self):
+        module = load_tool("inventory_uad_firmware")
+        self.assertIsNone(module.timestamp_utc(7))
+        self.assertEqual(module.timestamp_utc(0x616E1720), "2021-10-19T00:53:52Z")
+
+    def test_sha256_tail_hypotheses_are_explicit(self):
+        module = load_tool("inventory_uad_firmware")
+        prefix = bytes(32)
+        payload = b"synthetic payload"
+        digest = __import__("hashlib").sha256(payload).digest()
+        self.assertEqual(
+            module.sha256_tail_matches(prefix + digest + payload), ["payload"]
+        )
+
+
+class ContainerComparisonTests(unittest.TestCase):
+    def test_comparison_reports_equal_payload_structure(self):
+        module = load_tool("compare_uad_containers")
+        header = struct.pack(
+            "<16I",
+            int.from_bytes(b"HBUT", "little"),
+            0x616E1720,
+            42,
+            0xA012DC0D,
+            1,
+            2,
+            4,
+            0xFFFFFFFF,
+            *range(8),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            left = pathlib.Path(directory) / "left.bin"
+            right = pathlib.Path(directory) / "right.bin"
+            left.write_bytes(header + bytes(range(16)))
+            right.write_bytes(header + bytes(range(16)))
+            result = module.compare(left, right)
+        self.assertEqual(result["equal_byte_fraction"], 1.0)
+        self.assertEqual(result["longest_equal_run"], 16)
+        self.assertEqual(result["equal_16_byte_blocks"], 1)
+        self.assertEqual(result["equal_header_words"], list(range(16)))
+
+
+class PcieLoaderInspectorTests(unittest.TestCase):
+    def test_loader_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_pcie_loader")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 12)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertEqual(len(module.KNOWN_SHA256), 64)
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertTrue(
+            any("0x0be0deaf" in meaning for _address, _expected, meaning in module.SIGNATURES)
+        )
+
+    def test_unknown_loader_driver_is_refused(self):
+        module = load_tool("inspect_pcie_loader")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not the PCIe driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash mismatch"):
+                module.inspect(pathlib.Path(candidate.name))
+
+
+class UpdaterStateInspectorTests(unittest.TestCase):
+    def test_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_updater_state")
+        for signatures in (module.PERFMON_SIGNATURES, module.CLIENT_SIGNATURES):
+            addresses = [address for address, _bytes, _meaning in signatures]
+            self.assertEqual(len(addresses), len(set(addresses)))
+            self.assertTrue(all(expected for _address, expected, _meaning in signatures))
+        self.assertEqual(len(module.PERFMON_SHA256), 64)
+        self.assertEqual(len(module.CLIENT_SHA256), 64)
+
+    def test_unknown_updater_binary_is_refused(self):
+        module = load_tool("inspect_updater_state")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not an updater")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.verify(
+                    pathlib.Path(candidate.name),
+                    module.PERFMON_SHA256,
+                    module.PERFMON_SIGNATURES,
+                )
+
+    def test_recovered_system_info_fields_fit_the_record(self):
+        module = load_tool("inspect_updater_state")
+        fields = [
+            (0x20, 4),
+            (0x24, 4),
+            (0x28, 4),
+            (0x2C, 4),
+            (0x58, 1),
+            (0xA0, 4),
+        ]
+        self.assertTrue(all(offset + size <= 168 for offset, size in fields))
+
+    def test_firmware_dispatch_has_no_invented_bracketing(self):
+        module = load_tool("inspect_updater_state")
+        self.assertTrue(
+            any(
+                "FBUT, GBUT, and HBUT" in meaning
+                for _address, _expected, meaning in module.PERFMON_SIGNATURES
+            )
+        )
+        self.assertTrue(
+            any(
+                "calls LoadBinFile directly" in meaning
+                for _address, _expected, meaning in module.PERFMON_SIGNATURES
+            )
+        )
+
+
+class SystemInfoPathInspectorTests(unittest.TestCase):
+    def test_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_system_info_path")
+        for signatures in (module.SYSTEM_SIGNATURES, module.PCIE_SIGNATURES):
+            addresses = [address for address, _bytes, _meaning in signatures]
+            self.assertEqual(len(addresses), len(set(addresses)))
+            self.assertTrue(all(expected for _address, expected, _meaning in signatures))
+        self.assertEqual(len(module.SYSTEM_SHA256), 64)
+        self.assertEqual(len(module.PCIE_SHA256), 64)
+
+    def test_unknown_binary_is_refused(self):
+        module = load_tool("inspect_system_info_path")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not a driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.verify(
+                    pathlib.Path(candidate.name),
+                    module.SYSTEM_SHA256,
+                    module.SYSTEM_SIGNATURES,
+                )
+
+
+class BillLoaderInspectorTests(unittest.TestCase):
+    def test_signatures_and_completion_mapping_are_explicit(self):
+        module = load_tool("inspect_bill_loader")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 16)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertEqual(
+            sorted(module.FINAL_STATUS_TO_HOST_ERROR),
+            ["0x0001", "0x0002", "0x0003", "0x0004", "0x0005", "0x0008", "0x0009"],
+        )
+
+    def test_unknown_system_driver_is_refused(self):
+        module = load_tool("inspect_bill_loader")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not UAD2System")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash mismatch"):
+                module.inspect(pathlib.Path(candidate.name))
 
 
 class BillContainerInspectorTests(unittest.TestCase):
@@ -276,6 +471,58 @@ class BillResourceScannerTests(unittest.TestCase):
         module = load_tool("scan_bill_resources")
         hostile = struct.pack("<4s4I", b"Bill", 1, 0x02000001, 0xFFFFFFFF, 1)
         self.assertEqual(module.scan_bytes(hostile), [])
+
+
+class BillResourceAnalyzerTests(unittest.TestCase):
+    def test_analyzer_reports_prefix_sizes_and_rejects_direct_sha_hypotheses(self):
+        module = load_tool("analyze_bill_resources")
+        body = bytes(range(32)) + bytes(12)
+        resource = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "module.bin"
+            path.write_bytes(resource + resource)
+            result = module.analyze_files([path])
+
+        self.assertEqual(result["resource_instances"], 2)
+        self.assertEqual(result["unique_resource_sha256"], 1)
+        self.assertEqual(result["duplicate_instances"], 1)
+        self.assertEqual(
+            result["distributions"]["opaque_prefix_bytes_after_header"], {"32": 2}
+        )
+        for hypothesis in result["direct_sha256_hypotheses"].values():
+            self.assertEqual(hypothesis, {"eligible": 2, "matches": 0})
+        self.assertEqual(result["schema"], 2)
+        self.assertEqual(result["entropy_bits_per_byte"]["inner_core"]["count"], 1)
+        self.assertEqual(
+            result["standard_digest_subsequence_hypotheses"]["sha256_inner_core"],
+            {"eligible": 1, "matches_anywhere_in_prefix": 0},
+        )
+        self.assertEqual(
+            result["aligned_16_byte_block_tests"]["distinct_blocks_shared_by_multiple_unique_resources"],
+            0,
+        )
+
+
+class PublicBillCorpusAuditTests(unittest.TestCase):
+    def test_comparison_reports_only_resource_id_high_byte_difference(self):
+        module = load_tool("audit_public_bill_corpus")
+        body = bytes(range(32)) + bytes(12)
+        public = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        official = bytearray(public)
+        official[7] = 0
+        key = module._key(bytes(official))
+        result = module.compare_arrays({"fixture": public}, {key: bytes(official)})[0]
+        self.assertEqual(result["differing_byte_offsets"], [7])
+        self.assertTrue(result["all_bytes_after_resource_id_equal"])
+
+    def test_public_header_hash_is_locked(self):
+        module = load_tool("audit_public_bill_corpus")
+        self.assertEqual(len(module.PUBLIC_HEADER_SHA256), 64)
+        self.assertEqual(len(module.PUBLIC_COMMIT), 40)
 
 
 class Experiment011SourceTests(unittest.TestCase):

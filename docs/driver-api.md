@@ -116,3 +116,5 @@ kernel changes.
 The next ABI extension requires a real response from the device. Only then can
 buffer handles, program handles, job IDs, completion waits, and ownership rules
 be assigned kernel ioctls without baking guesses into a public interface.
+The complete evidence gates and all-eight fault matrix are in
+[`program-execution-gates.md`](program-execution-gates.md).

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "captured_at_utc": "2026-08-05T21:21:09Z",
+  "capture_mode": "read-only sysfs and lspci",
+  "kernel_release": "7.0.0-29-generic",
+  "pci_address": "0000:03:00.0",
+  "pci_id": "1a00:0002",
+  "subsystem_id": "1a00:0005",
+  "class": "0x048000",
+  "iommu_group": 16,
+  "driver": null,
+  "mmio_reads": 0,
+  "mmio_writes": 0,
+  "dma_mappings": 0,
+  "resets": 0,
+  "commands_submitted": 0
+}
