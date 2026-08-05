@@ -55,7 +55,10 @@ def parse(data: bytes) -> dict[str, object]:
     preserved_bytes = len(data) - replacement_dwords * 4
     input_tail = data[preserved_bytes:]
     transformed_tail = replacement_stream(resource_id, replacement_dwords)
-    transformed = data[:preserved_bytes] + transformed_tail
+    transform_applied = payload_form != 0
+    transformed = (
+        data[:preserved_bytes] + transformed_tail if transform_applied else data
+    )
 
     return {
         "magic": magic.decode("ascii"),
@@ -68,12 +71,36 @@ def parse(data: bytes) -> dict[str, object]:
         "declared_body_bytes": body_bytes,
         "replacement_dwords": replacement_dwords,
         "preserved_bytes": preserved_bytes,
+        "tail_transform_applied": transform_applied,
         "input_tail_sha256": hashlib.sha256(input_tail).hexdigest(),
         "transformed_tail_sha256": hashlib.sha256(transformed_tail).hexdigest(),
         "transformed_sha256": hashlib.sha256(transformed).hexdigest(),
-        "input_tail_already_transformed": input_tail == transformed_tail,
+        "input_tail_already_transformed": (
+            input_tail == transformed_tail if transform_applied else None
+        ),
         "transformed": transformed,
     }
+
+
+def build_command(data: bytes, allocation_offset: int, pool_direction: str) -> bytes:
+    """Build the exact two-dword resource envelope used by transmitResource."""
+    if allocation_offset < 0 or allocation_offset > 0xFFFFFFFF:
+        raise ValueError("allocation offset must fit in one dword")
+    if len(data) % 4:
+        raise ValueError("resource size must be dword aligned")
+    result = parse(data)
+    total_dwords = len(data) // 4 + 2
+    if total_dwords >= 0x10000:
+        raise ValueError("resource is too large for the short command word")
+    if pool_direction == "low-to-high":
+        command_base = 0x00010000
+    elif pool_direction == "high-to-low":
+        command_base = 0x00040000
+    else:
+        raise ValueError("pool direction must be low-to-high or high-to-low")
+    return struct.pack(
+        "<2I", command_base | total_dwords, allocation_offset
+    ) + result["transformed"]
 
 
 def inspect(path: Path) -> dict[str, object]:
@@ -91,6 +118,21 @@ def main() -> int:
         type=Path,
         help="write the exact resource bytes produced by the official host transform",
     )
+    parser.add_argument(
+        "--write-command",
+        type=Path,
+        help="write the two-dword transmitResource envelope and payload",
+    )
+    parser.add_argument(
+        "--allocation-offset",
+        type=lambda value: int(value, 0),
+        help="runtime pool offset required by --write-command",
+    )
+    parser.add_argument(
+        "--pool-direction",
+        choices=("low-to-high", "high-to-low"),
+        help="runtime pool allocation direction required by --write-command",
+    )
     args = parser.parse_args()
 
     result = parse(args.path.read_bytes())
@@ -98,6 +140,19 @@ def main() -> int:
     if args.write_transformed:
         args.write_transformed.write_bytes(transformed)
         result["transformed_path"] = str(args.write_transformed)
+    if args.write_command:
+        if args.allocation_offset is None or args.pool_direction is None:
+            parser.error(
+                "--write-command requires --allocation-offset and --pool-direction"
+            )
+        command = build_command(
+            args.path.read_bytes(), args.allocation_offset, args.pool_direction
+        )
+        args.write_command.write_bytes(command)
+        result["command_path"] = str(args.write_command)
+        result["command_dwords"] = len(command) // 4
+        result["command_word"] = f"0x{int.from_bytes(command[:4], 'little'):08x}"
+        result["allocation_offset"] = f"0x{args.allocation_offset:08x}"
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

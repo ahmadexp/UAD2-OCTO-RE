@@ -190,16 +190,31 @@ class BillContainerInspectorTests(unittest.TestCase):
         resource_id = 0x020000C2
         body = bytes(range(32)) + bytes(12)
         data = struct.pack(
-            "<4s4I", b"Bill", resource_id, 0x02000000, len(body), 3
+            "<4s4I", b"Bill", resource_id, 0x02010001, len(body), 3
         ) + body
         result = module.parse(data)
         expected_tail = module.replacement_stream(resource_id, 3)
 
         self.assertEqual(result["resource_id"], "0x020000c2")
         self.assertEqual(result["dsp_generation"], 2)
+        self.assertEqual(result["payload_form"], 1)
+        self.assertTrue(result["tail_transform_applied"])
         self.assertEqual(result["preserved_bytes"], len(data) - 12)
         self.assertEqual(result["transformed"][-12:], expected_tail)
         self.assertFalse(result["input_tail_already_transformed"])
+
+    def test_payload_form_zero_is_copied_unchanged(self):
+        module = load_tool("inspect_bill_container")
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        result = module.parse(data)
+
+        self.assertEqual(result["payload_form"], 0)
+        self.assertFalse(result["tail_transform_applied"])
+        self.assertIsNone(result["input_tail_already_transformed"])
+        self.assertEqual(result["transformed"], data)
 
     def test_replacement_stream_starts_with_complemented_id_big_endian(self):
         module = load_tool("inspect_bill_container")
@@ -213,6 +228,19 @@ class BillContainerInspectorTests(unittest.TestCase):
         data = struct.pack("<4s4I", b"Bill", 1, 0x02000000, 16, 1) + bytes(12)
         with self.assertRaisesRegex(ValueError, "declared body size"):
             module.parse(data)
+
+    def test_resource_command_contains_exact_pool_header(self):
+        module = load_tool("inspect_bill_container")
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+
+        low = module.build_command(data, 0x1234, "low-to-high")
+        high = module.build_command(data, 0x5678, "high-to-low")
+        self.assertEqual(struct.unpack_from("<2I", low), (0x00010012, 0x1234))
+        self.assertEqual(struct.unpack_from("<2I", high), (0x00040012, 0x5678))
+        self.assertEqual(low[8:], data)
 
 
 class Experiment011SourceTests(unittest.TestCase):
@@ -293,6 +321,43 @@ class Experiment018SourceTests(unittest.TestCase):
         self.assertIn('strcmp(argv[1], "--single-buffer")', source)
         self.assertIn('"official-chained-send-block"', source)
         self.assertIn('"alternate-single-buffer-with-response-class"', source)
+
+
+class ComputeDriverContractTests(unittest.TestCase):
+    def test_uapi_exposes_capabilities_without_raw_mmio(self):
+        header = (ROOT / "include" / "uapi" / "uad2_compute.h").read_text()
+        self.assertIn("UAD2_CAP_RING_TRANSPORT", header)
+        self.assertIn("UAD2_CAP_PROGRAM_ISOLATION", header)
+        self.assertIn("UAD2_COMPUTE_IOC_GET_DSP_STATUS", header)
+        self.assertNotIn("MMIO", header)
+        self.assertNotIn("PHYSICAL", header)
+        self.assertNotIn("SUBMIT_COMMAND", header)
+
+    def test_driver_is_locked_to_exact_octo_and_bounded_pages(self):
+        source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        self.assertIn("#define UAD2_SUBDEVICE_OCTO 0x0005", source)
+        self.assertIn("#define UAD2_BAR0_SIZE 0x10000", source)
+        self.assertIn("#define UAD2_DSP_COUNT 8", source)
+        self.assertIn("#define UAD2_RING_COUNT 2", source)
+        self.assertIn("#define UAD2_RING_PAGES 4", source)
+        self.assertIn("dma_alloc_coherent", source)
+        self.assertNotIn(".mmap", source)
+        self.assertNotIn(".write =", source)
+        self.assertNotIn(".read =", source)
+
+    def test_driver_advertises_only_validated_operations(self):
+        source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        capability_assignment = source[source.index(".capabilities =") :]
+        capability_assignment = capability_assignment[: capability_assignment.index(";")]
+        self.assertIn("UAD2_CAP_RING_TRANSPORT", capability_assignment)
+        self.assertIn("UAD2_CAP_PER_DSP_RESET", capability_assignment)
+        self.assertNotIn("UAD2_CAP_PROGRAM_LOAD", capability_assignment)
+        self.assertNotIn("UAD2_CAP_DMA_BUFFERS", capability_assignment)
+        self.assertNotIn("UAD2_CAP_JOB_COMPLETION", capability_assignment)
+
+    def test_compute_operations_fail_closed_in_userspace(self):
+        source = (ROOT / "lib" / "uad2_compute.c").read_text()
+        self.assertEqual(source.count("return -EOPNOTSUPP;"), 4)
 
 
 if __name__ == "__main__":

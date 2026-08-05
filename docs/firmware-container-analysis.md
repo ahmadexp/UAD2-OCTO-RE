@@ -86,9 +86,22 @@ See
 [`experiment-018-loader-response-probes.md`](experiment-018-loader-response-probes.md).
 
 Ordinary DSP programs use a separate `Bill` resource format. Its exact outer
-parser and deterministic host-side tail transform are documented in
+parser, conditional host-side tail transform, and runtime allocator are documented in
 [`bill-resource-analysis.md`](bill-resource-analysis.md). Those findings do not
 decode the HBUT payload.
+
+## Transformation and authentication matrix
+
+| Payload | Host transformation | Host authentication | DSP-side status |
+|---|---|---|---|
+| `Bill`, payload form 0 | Complete byte-for-byte copy | No cryptographic check in the outer parser | Opaque and untested on OCTO |
+| `Bill`, payload form nonzero | Replace declared trailing dwords with an ID-seeded deterministic stream | No cryptographic check in the outer parser | Opaque and untested on OCTO |
+| `HBUT` updater object | Fixed 64-byte wrapper parsed; inner payload unresolved | Unknown | Not submitted because persistence is possible |
+| Runtime loader block | Page-chained DMA framing recovered | Accepted-image validation unknown | Incomplete probes consumed without a reply |
+
+This matrix distinguishes lack of a host-side check from proof that no
+authentication exists. DSP firmware can still authenticate or decrypt the
+opaque bytes after receipt.
 
 ## Offline tools
 

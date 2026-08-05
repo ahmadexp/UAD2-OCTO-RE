@@ -1,0 +1,44 @@
+{
+  "experiment": "019-kernel-transport-and-userspace-api",
+  "date": "2026-08-05",
+  "target": {
+    "bdf": "0000:03:00.0",
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "kernel": "7.0.0-29-generic",
+    "iommu_group_exclusive": true
+  },
+  "build": {
+    "kernel_module": "pass",
+    "userspace_library": "pass",
+    "userspace_werror": true,
+    "kernel_source_sha256": "599cfd390a74b4caeb9421e0d026b55fee31891617a9b999e8ae85f079f0b8d4"
+  },
+  "preflight": {
+    "dma_mappings": 0,
+    "mmio_writes": 0,
+    "dma_control": "0x0001fe00",
+    "zero_ring_words": 176,
+    "ready_dsp_count": 8
+  },
+  "execution": {
+    "secure_boot_enabled": true,
+    "module_load": "rejected-before-probe",
+    "kernel_error": "Key was rejected by service",
+    "driver_probe_entered": false,
+    "transport_started": false,
+    "per_dsp_resets_attempted": 0,
+    "programs_submitted": 0,
+    "mmio_writes": 0
+  },
+  "postflight": {
+    "dma_mappings": 0,
+    "mmio_writes": 0,
+    "dma_control": "0x0001fe00",
+    "zero_ring_words": 176,
+    "ready_dsp_count": 8,
+    "endpoint_unbound": true,
+    "module_loaded": false
+  },
+  "result": "blocked-by-secure-boot-signature-policy"
+}

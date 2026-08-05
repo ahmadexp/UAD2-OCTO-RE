@@ -76,21 +76,24 @@ it does not establish how this board wires or gates those interfaces.
 - [Analog Devices ADSP-21469 product and documentation](https://www.analog.com/en/products/adsp-21469.html)
 - [ADSP-21467/21469 data sheet](https://www.analog.com/media/en/technical-documentation/data-sheets/adsp-21467_21469.pdf)
 
-## Proposed userspace ABI
+## Userspace ABI
 
-Keep the early ABI deliberately small:
+The implemented library keeps the early ABI deliberately small:
 
 ```c
-int uadgc_open(unsigned card_index);
-int uadgc_query(struct uadgc_caps *caps);
-int uadgc_alloc(size_t bytes, unsigned flags, struct uadgc_buffer *buffer);
-int uadgc_load(unsigned dsp, const void *image, size_t bytes,
-               struct uadgc_program *program);
-int uadgc_submit(unsigned dsp, struct uadgc_job *job);
-int uadgc_wait(struct uadgc_job *job, int timeout_ms);
-int uadgc_reset(unsigned dsp);
+int uad2_compute_open(unsigned card_index, struct uad2_compute **out);
+int uad2_compute_get_info(struct uad2_compute *device,
+                          struct uad2_compute_info *info);
+int uad2_compute_get_dsp_status(struct uad2_compute *device,
+                                unsigned dsp,
+                                struct uad2_compute_dsp_status *status);
+int uad2_compute_start_transport(struct uad2_compute *device);
+int uad2_compute_reset_dsp(struct uad2_compute *device, unsigned dsp,
+                           struct uad2_compute_reset *result);
+int uad2_compute_stop_transport(struct uad2_compute *device);
 ```
 
-Do not expose arbitrary MMIO writes or physical DMA addresses through the
-public API. Those shortcuts make early experiments easier but prevent a safe,
-maintainable general-purpose interface.
+Buffer, load, submit, and wait function names are also reserved in the library,
+but return `-EOPNOTSUPP`. Their capability bits remain clear. See
+[`driver-api.md`](driver-api.md). The public API exposes neither arbitrary MMIO
+writes nor physical DMA addresses.

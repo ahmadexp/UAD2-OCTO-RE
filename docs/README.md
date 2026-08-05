@@ -17,7 +17,8 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`dsp-model-and-memory-map.md`](dsp-model-and-memory-map.md): ADSP-21469-family evidence and data-sheet map
 - [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md): boot polling and all-eight reset isolation
 - [`firmware-container-analysis.md`](firmware-container-analysis.md): exact OCTO artifact and unresolved loader rules
-- [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format and deterministic host transform
+- [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format, conditional transform, and runtime allocator
+- [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 
 ## Captured baselines
@@ -49,6 +50,7 @@ card recovered. It does not imply that later or broader operations are safe.
 | 016 | [`experiment-014-016-full-start-queries.md`](experiment-014-016-full-start-queries.md) | [`experiment-016-result.json`](experiment-016-result.json) | Connect sequence and query 027 consumed, no response |
 | 017 | [`experiment-017-per-dsp-reset-isolation.md`](experiment-017-per-dsp-reset-isolation.md) | [`experiment-017-result.json`](experiment-017-result.json) | Every per-DSP reset pulse isolated, re-enabled, and recovered |
 | 018 | [`experiment-018-loader-response-probes.md`](experiment-018-loader-response-probes.md) | [`experiment-018-result.json`](experiment-018-result.json) | Three incomplete loader objects consumed, no response, exact recovery |
+| 019 | [`experiment-019-kernel-transport.md`](experiment-019-kernel-transport.md) | [`experiment-019-result.json`](experiment-019-result.json) | Module and library build; hardware run blocked before probe by Secure Boot |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

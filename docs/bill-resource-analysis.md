@@ -36,11 +36,17 @@ enforces these bounds:
 These checks are structural. No signature or cryptographic verification call
 occurs in this parser.
 
-## Deterministic tail replacement
+## Conditional deterministic tail replacement
 
-The transmit transform at `0x1400163b8` copies the resource except for its
-last `replacement_dwords * 4` bytes. It discards that input tail and writes a
-deterministic sequence in its place:
+`CResourcePool::transmitResource` checks both the payload-form byte and the
+resource type before calling the transform at `0x1400163b8`. Because the
+validator already rejects a nonzero payload form with resource type zero, the
+effective rule is:
+
+- payload form zero: copy the complete `Bill` object unchanged;
+- payload form nonzero: copy the resource except its last
+  `replacement_dwords * 4` bytes, then replace that tail with the sequence
+  below.
 
 ```text
 state = bitwise_not(resource_id) as an unsigned 32-bit integer
@@ -52,7 +58,10 @@ repeat replacement_dwords times:
 The first emitted bytes for resource ID `0x020000c2` are `fd ff ff 3d`.
 This is obfuscation or deterministic filler, not a cryptographic signature.
 The driver does not compare the discarded input tail with the generated
-stream.
+stream. The related captured resources listed below all have attributes
+`0x02000000`, meaning DSP generation two, payload form zero, and resource type
+zero. The official path copies those objects unchanged and does not apply the
+tail transform.
 
 `tools/inspect_bill_container.py` reproduces the parser bounds and exact tail
 transform without hardware access:
@@ -67,10 +76,39 @@ python3 tools/inspect_bill_container.py program.bill \
 
 `CResourcePool::transmitResource`, beginning at `0x14000cafc`, allocates a
 command DMA object large enough for two leading dwords plus the complete
-transformed resource. The resource transform writes at command-buffer offset
-eight. The command is split into page-sized DMA descriptors and is paired with
-a response object. The completion parser recognizes response header
-`0x80020044` and status class `0xf0060000`.
+transmit-form resource. The exact command buffer is:
+
+| Dword | Meaning |
+|---:|---|
+| 0 | `0x00010000 | total_dwords` for a low-to-high pool, or `0x00040000 | total_dwords` for a high-to-low pool |
+| 1 | Allocated runtime pool offset |
+| 2 onward | Complete copy or conditionally transformed `Bill` resource |
+
+`total_dwords` includes both envelope dwords. The command is split into
+page-sized DMA descriptors and paired with a response object.
+
+The allocator at `0x14000c098` keeps an ordered free-list whose entries contain
+an offset and size in dwords. One pool takes space from the low end of a free
+range; the other takes space from its high end. Allocation creates a 32-byte
+record containing the resource pointer, assigned offset, size, and reference
+count. Reusing the same resource increments that reference count. The pool's
+absolute base and bounds are not yet identified, so an offset cannot safely be
+chosen for a new OCTO program.
+
+The completion parser recognizes a four-dword response with header
+`0x80020044`, zero in dwords one and two, and status class `0xf0060000` in the
+upper 16 bits of dword three. The low status code is mapped to a host error.
+No such completion has yet been received from the OCTO.
+
+The offline tool can construct the exact envelope when a known allocation
+offset and pool direction are supplied:
+
+```bash
+python3 tools/inspect_bill_container.py program.bill \
+  --write-command /tmp/program.command \
+  --allocation-offset 0x1234 \
+  --pool-direction low-to-high
+```
 
 This resource path is distinct from `_sendBlock(0x00120000, 0x80040000, ...)`,
 which carries the DSP framework or firmware payload and expects response class
@@ -78,10 +116,11 @@ which carries the DSP framework or firmware payload and expects response class
 
 ## Relocations and executable core
 
-No relocation records are interpreted by the outer `Bill` parser. Bytes before
-the replaced tail are copied unchanged. Any segment table, relocation data,
-entry point, or executable authentication therefore belongs to the preserved
-inner core or to the DSP-side consumer.
+No relocation records are interpreted by the outer `Bill` parser. Form-zero
+objects are copied in full; for other forms, bytes before the replaced tail are
+copied unchanged. Any segment table, relocation data, entry point, or
+executable authentication therefore belongs to the opaque body or to the
+DSP-side consumer.
 
 Prior captures for related Apollo hardware include resource IDs
 `0x020000a5`, `0x020000c2`, `0x020000db`, `0x020000eb`, and `0x0200012b`.
@@ -95,7 +134,9 @@ resource inventory are available.
 Confirmed statically:
 
 - Exact 20-byte outer header and field bounds.
-- Exact deterministic tail replacement algorithm.
+- Exact payload-form branch and deterministic tail replacement algorithm.
+- Exact two-dword resource envelope and free-list allocation direction.
+- Exact structural checks for the four-dword completion.
 - Absence of host-side cryptographic verification in this parser.
 - Resource transport response header and status class.
 
@@ -104,5 +145,5 @@ Still unresolved:
 - The preserved inner-core encoding.
 - Segment and relocation records inside that core, if any.
 - DSP-side validation or authentication.
+- Absolute runtime pool bases, bounds, and reserved ranges.
 - OCTO-specific resource IDs, entry points, and memory reservations.
-- The command-envelope fields preceding the transformed resource.

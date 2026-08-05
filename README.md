@@ -26,8 +26,10 @@ General-purpose DSP execution is **not yet achieved**. The queries receive no
 reply because the card appears to be in a boot/framework state without the
 runtime service expected by those commands. The exact matching official OCTO
 firmware-update container has been identified offline, but it is potentially
-persistent and has not been loaded. The next milestone is recovering the
-volatile runtime loader and container transform before attempting a heartbeat.
+persistent and has not been loaded. The ordinary `Bill` resource envelope,
+conditional transform, and runtime allocation strategy are recovered
+statically, but the DSP-side payload remains opaque. The next milestone is a
+valid runtime response followed by a target-specific harmless program.
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -47,7 +49,8 @@ volatile runtime loader and container transform before attempting a heartbeat.
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
 | DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
-| Generic compute API | Design only | [`docs/architecture.md`](docs/architecture.md) |
+| Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
+| Kernel transport hardware run | Blocked before probe by Secure Boot | [`docs/experiment-019-kernel-transport.md`](docs/experiment-019-kernel-transport.md) |
 
 ## Observed hardware
 
@@ -77,10 +80,12 @@ these tools on an older profile.
 - [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md): SHARC identification and address map
 - [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
-- [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP program-resource parser and host transform
+- [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
+- [`docs/driver-api.md`](docs/driver-api.md): bounded kernel transport and userspace ABI
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
-- [`kernel/`](kernel): minimal read-only Linux identity probe
+- [`kernel/`](kernel): read-only identity probe and bounded OCTO transport module
+- [`lib/`](lib): userspace compute API and diagnostic client
 - [`tests/`](tests): tests for allowlists and static-analysis tooling
 
 ## Safe starting point

@@ -1,4 +1,7 @@
 obj-m += uad2_identity.o
+obj-m += uad2_compute.o
+
+ccflags-y += -I$(src)/../include/uapi
 
 .PHONY: all clean
 

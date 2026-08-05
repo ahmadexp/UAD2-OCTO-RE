@@ -29,8 +29,11 @@ buffers, report completion, and recover from failure.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
 - [x] Build a bounded offline wrapper parser with synthetic tests.
 - [x] Recover the `Bill` program-resource outer header and deterministic host
-      tail transform.
-- [ ] Decode and parse the transformed payload into segments and relocations.
+      tail transform, including the payload-form branch.
+- [x] Recover its two-dword transmit envelope and low/high free-list allocator.
+- [ ] Identify absolute pool bases, bounds, and reserved ranges.
+- [ ] Decode opaque payloads into segments and relocations, if those concepts
+      are present in the DSP-side format.
 
 The exact `HBUT` artifact matches the target's FPGA revision, but the updater
 warns against power loss. It remains outside the experiment boundary until the
@@ -47,8 +50,9 @@ persistent update path is separated from the volatile DSP framework loader.
 
 ## Phase 4: reusable compute interface
 
-- [ ] Linux kernel transport with no arbitrary MMIO or physical-address API.
-- [ ] Userspace library for capabilities, buffers, programs, jobs, and waits.
+- [x] Linux kernel transport with no arbitrary MMIO or physical-address API.
+- [x] Userspace library with versioned capabilities; buffer, program, job, and
+      wait calls are present but explicitly return `-EOPNOTSUPP`.
 - [ ] Per-DSP scheduling and failure isolation.
 - [x] Validate empty-transport reset isolation across all eight DSP engines.
 - [ ] Validate program and buffer isolation across all eight DSP cores.
