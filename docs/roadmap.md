@@ -28,6 +28,8 @@ buffers, report completion, and recover from failure.
 - [ ] Determine whether executable containers are signed or authenticated.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
 - [x] Build a bounded offline wrapper parser with synthetic tests.
+- [x] Recover the `Bill` program-resource outer header and deterministic host
+      tail transform.
 - [ ] Decode and parse the transformed payload into segments and relocations.
 
 The exact `HBUT` artifact matches the target's FPGA revision, but the updater

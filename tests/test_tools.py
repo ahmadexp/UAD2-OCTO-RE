@@ -184,6 +184,37 @@ class UadContainerInspectorTests(unittest.TestCase):
                 module.inspect(path)
 
 
+class BillContainerInspectorTests(unittest.TestCase):
+    def test_parser_reproduces_official_tail_transform(self):
+        module = load_tool("inspect_bill_container")
+        resource_id = 0x020000C2
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", resource_id, 0x02000000, len(body), 3
+        ) + body
+        result = module.parse(data)
+        expected_tail = module.replacement_stream(resource_id, 3)
+
+        self.assertEqual(result["resource_id"], "0x020000c2")
+        self.assertEqual(result["dsp_generation"], 2)
+        self.assertEqual(result["preserved_bytes"], len(data) - 12)
+        self.assertEqual(result["transformed"][-12:], expected_tail)
+        self.assertFalse(result["input_tail_already_transformed"])
+
+    def test_replacement_stream_starts_with_complemented_id_big_endian(self):
+        module = load_tool("inspect_bill_container")
+        stream = module.replacement_stream(0x020000C2, 2)
+        self.assertEqual(stream[:4], bytes.fromhex("fdffff3d"))
+        next_value = (((~0x020000C2) & 0xFFFFFFFF) * 0xBC8F) % 0x7FFFFFFF
+        self.assertEqual(stream[4:8], next_value.to_bytes(4, "big"))
+
+    def test_parser_rejects_inconsistent_size(self):
+        module = load_tool("inspect_bill_container")
+        data = struct.pack("<4s4I", b"Bill", 1, 0x02000000, 16, 1) + bytes(12)
+        with self.assertRaisesRegex(ValueError, "declared body size"):
+            module.parse(data)
+
+
 class Experiment011SourceTests(unittest.TestCase):
     def test_probe_stays_below_dma_and_command_boundary(self):
         source = (ROOT / "tools" / "vfio_official_ring_init.c").read_text()
@@ -244,6 +275,24 @@ class Experiment014SourceTests(unittest.TestCase):
         self.assertIn("#define SEQUENCE_COMMAND 0x00270001", source)
         self.assertIn("#define SEQUENCE_RESPONSE_HEADER 0x800d0002", source)
         self.assertIn('strcmp(argv[1], "--connect")', source)
+
+
+class Experiment018SourceTests(unittest.TestCase):
+    def test_loader_probe_uses_bounded_pages_and_recovery(self):
+        source = (ROOT / "tools" / "vfio_loader_rejection.c").read_text()
+        self.assertIn("#define PAGE_COUNT 67", source)
+        self.assertIn("#define LOADER_COMMAND_BASE 0x00120000", source)
+        self.assertIn("#define LOADER_RESPONSE_CLASS 0x80040000", source)
+        self.assertIn("payload_stat.st_size > (off_t)PAGE_SIZE_4K", source)
+        self.assertIn("ioctl(device, VFIO_DEVICE_RESET)", source)
+        self.assertNotIn("write32(bar, 0x8000", source)
+        self.assertNotIn("write32(bar, 0xa000", source)
+
+    def test_official_and_alternate_framings_are_explicit(self):
+        source = (ROOT / "tools" / "vfio_loader_rejection.c").read_text()
+        self.assertIn('strcmp(argv[1], "--single-buffer")', source)
+        self.assertIn('"official-chained-send-block"', source)
+        self.assertIn('"alternate-single-buffer-with-response-class"', source)
 
 
 if __name__ == "__main__":

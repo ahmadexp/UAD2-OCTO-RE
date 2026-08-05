@@ -74,10 +74,21 @@ the device ultimately writes flash, configures the FPGA, or stages another
 persistent component, so hardware execution remains prohibited.
 
 The official macOS driver independently shows a runtime `LoadFirmware` path
-using block command base `0x80040000`, argument `0x00120000`, and a 150,000 ms
-timeout. Its block helper uses command-ring DMA references and response
-descriptors. The relationship between that runtime path and the updater's
-potentially persistent `HBUT` object is not yet proven.
+using command base `0x00120000`, expected response class `0x80040000`, and a
+150,000 ms timeout. Its block helper uses command-ring DMA references and
+response descriptors. The relationship between that runtime path and the
+updater's potentially persistent `HBUT` object is not yet proven.
+
+Experiment 018 submitted a one-dword zero placeholder and the 64-byte OCTO
+HBUT header without its declared payload. Both command chains were consumed,
+but neither produced a response. No complete firmware image was submitted.
+See
+[`experiment-018-loader-response-probes.md`](experiment-018-loader-response-probes.md).
+
+Ordinary DSP programs use a separate `Bill` resource format. Its exact outer
+parser and deterministic host-side tail transform are documented in
+[`bill-resource-analysis.md`](bill-resource-analysis.md). Those findings do not
+decode the HBUT payload.
 
 ## Offline tools
 

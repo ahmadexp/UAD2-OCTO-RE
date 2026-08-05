@@ -29,9 +29,15 @@ userspace
 
 Each ring entry is four little-endian 32-bit words. It can carry an inline
 command or reference a host DMA buffer. Static analysis recovers a runtime
-block loader using command base `0x80040000`, argument `0x00120000`, and an
+block loader using command base `0x00120000`, response class `0x80040000`, and an
 opaque image. Its safe relationship to the exact `HBUT` updater container is
-not established, so no image has been sent to the card.
+not established, so no complete image has been sent to the card. Experiment
+018 submitted only deliberately incomplete, non-executable probes.
+
+The ordinary program-resource path uses a separate `Bill` container and a
+different completion ABI. Its 20-byte outer header and deterministic tail
+replacement are recovered in [`bill-resource-analysis.md`](bill-resource-analysis.md),
+but its preserved executable core remains opaque.
 
 ## What generic compute requires
 

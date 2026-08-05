@@ -1,0 +1,42 @@
+{
+  "experiment": "018-loader-response-probes",
+  "date": "2026-08-05",
+  "device": "0000:03:00.0",
+  "pci_id": "1a00:0002",
+  "subsystem_id": "1a00:0005",
+  "iommu_group": 16,
+  "runs": [
+    {
+      "framing": "official-chained-send-block",
+      "payload": "one-zero-dword",
+      "payload_bytes": 4,
+      "loader_command": "0x00120002",
+      "loader_descriptors_consumed": true,
+      "response_descriptor_consumed": false,
+      "response_written": false
+    },
+    {
+      "framing": "official-chained-send-block",
+      "payload": "official-octo-hbut-header-only",
+      "payload_bytes": 64,
+      "loader_command": "0x00120011",
+      "loader_descriptors_consumed": true,
+      "response_descriptor_consumed": false,
+      "response_written": false
+    },
+    {
+      "framing": "alternate-single-buffer-with-response-class",
+      "payload": "one-zero-dword",
+      "payload_bytes": 4,
+      "loader_command": "0x00120002",
+      "loader_descriptors_consumed": true,
+      "response_descriptor_consumed": false,
+      "response_written": false
+    }
+  ],
+  "writes_confined_to_response_prefix": true,
+  "all_dsps_ready_after_each_probe": true,
+  "explicit_restore_succeeded_after_each_probe": true,
+  "vfio_reset_recovered_after_each_probe": true,
+  "valid_dsp_response_observed": false
+}

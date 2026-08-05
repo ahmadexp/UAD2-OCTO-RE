@@ -44,8 +44,9 @@ volatile runtime loader and container transform before attempting a heartbeat.
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
 | DSP family and data-sheet map | Strong ADSP-21469 evidence | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
 | Exact matching firmware container | Identified offline, not loaded | [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md) |
+| `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
-| DSP program loading | Not attempted | [`docs/roadmap.md`](docs/roadmap.md) |
+| DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Design only | [`docs/architecture.md`](docs/architecture.md) |
 
 ## Observed hardware
@@ -76,6 +77,7 @@ these tools on an older profile.
 - [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md): SHARC identification and address map
 - [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
+- [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP program-resource parser and host transform
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
 - [`kernel/`](kernel): minimal read-only Linux identity probe
@@ -131,6 +133,9 @@ not justified.
     response.
 17. Pulse and recover each official per-DSP reset path independently with all
     rings empty and IOMMU-contained.
+18. Submit two exact short-loader framings and a truncated HBUT header under
+    bounded DMA. Every command was consumed without a reply, and every run
+    recovered cleanly.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

@@ -95,11 +95,14 @@ They are outside the current safety boundary and must not be issued merely
 because their framing is known.
 
 The symbolized macOS implementation labels its runtime wrapper `LoadFirmware`.
-It calls the block helper with command base `0x80040000`, argument
-`0x00120000`, and timeout `0x249f0` (150,000 ms). The block helper handles
-bounded command buffers through ring DMA references and waits on the ordinary
-response-descriptor mechanism. This proves that a volatile command-ring loader
-exists, but does not yet identify its accepted image format.
+It calls the block helper with command base `0x00120000`, expected response
+class `0x80040000`, and timeout `0x249f0` (150,000 ms). For a short payload the
+helper emits one DMA descriptor for a header dword containing
+`0x00120000 | (payload_dwords + 1)`, followed by DMA descriptors for the
+payload pages. It queues a four-dword response descriptor first and accepts a
+reply whose first dword has class `0x8004xxxx`. This proves that a volatile
+command-ring loader exists, but does not yet identify its accepted image
+format.
 
 Separate static analysis of UAD 11.0.1 `UADPerfMon` shows that `FBUT`, `GBUT`,
 and `HBUT` select the firmware-update interface. The exact OCTO `HBUT` artifact
