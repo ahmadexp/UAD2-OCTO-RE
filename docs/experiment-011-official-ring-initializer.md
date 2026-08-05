@@ -1,6 +1,7 @@
 # Experiment 011: official DSP 0 ring-initializer order
 
-Status: prepared and compile-validated, not executed.
+Status: executed successfully on 2026-08-05, followed by independent recovery
+verification.
 
 ## Objective
 
@@ -89,3 +90,21 @@ A successful result establishes only that the official ring-publication order
 is accepted while DMA remains disabled. It does not prove that the DSP can use
 the pages, that the full-card startup is complete, or that any resident command
 will respond.
+
+## Result
+
+Both raw hardware indexes were zero. The probe synchronized all four host-index
+writes, published all 16 descriptor words, and read the complete state back
+successfully. All eight distinct canary pages remained unchanged, DMA control
+remained at cold value `0x0001fe00`, and all DSPs remained ready. No DMA,
+interrupt, or command write occurred.
+
+Cleanup restored every ring word to zero and VFIO device reset recovered. A
+separate read-only VFIO probe then used no DMA mapping and no MMIO write to
+confirm DMA control `0x0001fe00`, all 256 ring-window words zero, DSP 0 at
+`0x00000a03`, and DSP 1 through 7 at `0x00000003`.
+
+The structured result is
+[`experiment-011-result.json`](experiment-011-result.json), and the separate
+capture is
+[`experiment-011-independent-recovery.json`](experiment-011-independent-recovery.json).

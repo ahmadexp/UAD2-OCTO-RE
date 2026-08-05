@@ -12,8 +12,8 @@ buffers, report completion, and recover from failure.
 - [x] Enable only DSP0 DMA under a bounded mapping.
 - [x] Reproduce DSP0 interrupt masks.
 - [x] Recover the complete device-start sequence statically.
-- [ ] Reproduce four-page command and response ring initialization in official
-      order (Experiment 011 prepared and compile-validated).
+- [x] Reproduce four-page command and response ring initialization in official
+      order with DMA disabled.
 - [ ] Receive one benign response from resident firmware.
 
 ## Phase 2: loader and executable format

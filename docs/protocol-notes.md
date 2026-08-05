@@ -80,6 +80,6 @@ DMA tables, then enable shared interrupt vector 40. See
 [`device-startup-sequence.md`](device-startup-sequence.md).
 
 Experiments 009 and 010 exposed only response page zero and enabled DSP0 DMA
-before ring publication completed. Experiment 011 isolates the corrected
-four-page ring initialization while deliberately keeping DMA disabled and
-submitting no command.
+before ring publication completed. Experiment 011 confirmed the corrected
+four-page ring initialization and official ordering while DMA remained cold,
+all pages remained unchanged, and no command was submitted.

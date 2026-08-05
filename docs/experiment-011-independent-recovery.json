@@ -1,0 +1,27 @@
+{
+  "date": "2026-08-05",
+  "transport": "vfio-pci",
+  "iommu_type": "VFIO_TYPE1_IOMMU",
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "bar0_size": 65536,
+  "device_flags": 3,
+  "dma_control": "0x0001fe00",
+  "ring_words_read": 176,
+  "zero_ring_words": 176,
+  "extended_ring_words_read": 80,
+  "zero_extended_ring_words": 80,
+  "total_ring_words_read": 256,
+  "total_zero_ring_words": 256,
+  "dsp_status": [
+    "0x00000a03",
+    "0x00000003",
+    "0x00000003",
+    "0x00000003",
+    "0x00000003",
+    "0x00000003",
+    "0x00000003",
+    "0x00000003"
+  ],
+  "all_dsps_ready": true
+}

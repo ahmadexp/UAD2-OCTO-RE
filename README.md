@@ -38,6 +38,7 @@ before any loader or firmware command is attempted.
 | Command dequeue | Observed | Experiments 008 through 010 |
 | Response delivery | Not yet observed | [`docs/experiment-010-official-query-interrupt-gates.md`](docs/experiment-010-official-query-interrupt-gates.md) |
 | Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
+| Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | DSP program loading | Not attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Design only | [`docs/architecture.md`](docs/architecture.md) |
 
@@ -108,8 +109,8 @@ closed before another recognized command is justified.
 9. Submit two candidate framings of official query 026, with no response.
 10. Repeat the corrected query with official DSP0 interrupt gates, with no
     response, then independently verify full recovery.
-11. Prepare a no-command probe that publishes four pages for both DSP0 rings in
-    the official order while DMA remains disabled.
+11. Publish four pages for both DSP0 rings in the official order with DMA
+    disabled, then independently confirm all 256 ring words returned to zero.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

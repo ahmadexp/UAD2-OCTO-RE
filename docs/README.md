@@ -37,10 +37,12 @@ card recovered. It does not imply that later or broader operations are safe.
 | 008 | [`experiment-008-zero-entry-fetch.md`](experiment-008-zero-entry-fetch.md) | [`experiment-008-result.json`](experiment-008-result.json) | Hardware read index advanced |
 | 009 | [`experiment-009-official-query.md`](experiment-009-official-query.md) | Included in procedure | Command dequeued, no response |
 | 010 | [`experiment-010-official-query-interrupt-gates.md`](experiment-010-official-query-interrupt-gates.md) | [`experiment-010-result.json`](experiment-010-result.json) | Interrupt mask accepted, no response |
-| 011 | [`experiment-011-official-ring-initializer.md`](experiment-011-official-ring-initializer.md) | Not executed | Prepared no-command official ring order |
+| 011 | [`experiment-011-official-ring-initializer.md`](experiment-011-official-ring-initializer.md) | [`experiment-011-result.json`](experiment-011-result.json) | Official four-page ring order accepted, DMA disabled |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).
+Experiment 011 also has a separate
+[`independent recovery capture`](experiment-011-independent-recovery.json).
 
 ## Evidence labels
 
