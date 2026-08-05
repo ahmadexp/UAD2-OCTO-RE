@@ -94,16 +94,15 @@ module alongside VFIO or a vendor driver.
 ## Secure Boot
 
 The tested host has Secure Boot enabled and rejected the unsigned research
-module before its probe ran. Do not disable signature enforcement or use an
-enforcement bypass. The normal path is to create a local Machine Owner Key,
-sign the module with the running kernel's `scripts/sign-file`, import only the
-public certificate with `mokutil --import`, and complete enrollment in the
-firmware UI after a user-approved reboot.
+module before its probe ran. A dedicated local Machine Owner Key was then
+created, the module was signed with the running kernel's `scripts/sign-file`,
+the public certificate was enrolled through MokManager, and the signed module
+loaded successfully. Signature enforcement was never disabled or bypassed.
 
 Keep the private key outside this repository. Module enrollment changes the
 host trust configuration and is therefore not performed by the experiment
-wrapper. After enrollment, rebuild and sign the module again whenever its
-contents or target kernel changes.
+wrapper. Rebuild and sign the module again whenever its contents or target
+kernel changes.
 
 ## ABI files
 

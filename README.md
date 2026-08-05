@@ -50,7 +50,7 @@ valid runtime response followed by a target-specific harmless program.
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
 | DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
-| Kernel transport hardware run | Blocked before probe by Secure Boot | [`docs/experiment-019-kernel-transport.md`](docs/experiment-019-kernel-transport.md) |
+| Kernel transport hardware run | Confirmed across all eight DSP engines | [`docs/experiment-019-kernel-transport.md`](docs/experiment-019-kernel-transport.md) |
 
 ## Observed hardware
 
@@ -141,6 +141,9 @@ not justified.
 18. Submit two exact short-loader framings and a truncated HBUT header under
     bounded DMA. Every command was consumed without a reply, and every run
     recovered cleanly.
+19. Bind the signed Linux transport module, publish all 64 coherent ring pages,
+    exercise all eight per-DSP reset paths, stop, unload, and independently
+    confirm exact cold-state recovery.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

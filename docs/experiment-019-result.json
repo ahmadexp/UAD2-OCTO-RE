@@ -23,13 +23,26 @@
   },
   "execution": {
     "secure_boot_enabled": true,
-    "module_load": "rejected-before-probe",
-    "kernel_error": "Key was rejected by service",
-    "driver_probe_entered": false,
-    "transport_started": false,
-    "per_dsp_resets_attempted": 0,
+    "initial_unsigned_module_load": "rejected-before-probe",
+    "machine_owner_key_enrolled": true,
+    "signature_enforcement_bypassed": false,
+    "temporary_mok_boot_entry_removed": true,
+    "normal_boot_order_restored": true,
+    "signed_module_sha256": "80355cd0962f70680807fa37b2a33118f6eccc648075a35f31e9222a93ed0750",
+    "signed_module_load": "pass",
+    "driver_probe_entered": true,
+    "reported_capabilities": "0x0000000000000003",
+    "ring_pages_allocated": 64,
+    "transport_started": true,
+    "ready_and_dma_enabled_after_start": 8,
+    "per_dsp_resets_attempted": 8,
+    "per_dsp_resets_passed": 8,
+    "dma_control_before_each_reset": "0x000001ff",
+    "dma_control_after_each_reset": "0x000001ff",
+    "transport_stop": "pass",
+    "module_unload": "pass",
     "programs_submitted": 0,
-    "mmio_writes": 0
+    "commands_submitted": 0
   },
   "postflight": {
     "dma_mappings": 0,
@@ -40,5 +53,5 @@
     "endpoint_unbound": true,
     "module_loaded": false
   },
-  "result": "blocked-by-secure-boot-signature-policy"
+  "result": "pass"
 }

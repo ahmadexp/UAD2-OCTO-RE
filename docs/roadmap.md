@@ -51,6 +51,7 @@ persistent update path is separated from the volatile DSP framework loader.
 ## Phase 4: reusable compute interface
 
 - [x] Linux kernel transport with no arbitrary MMIO or physical-address API.
+- [x] Validate the signed kernel transport on the exact OCTO under Secure Boot.
 - [x] Userspace library with versioned capabilities; buffer, program, job, and
       wait calls are present but explicitly return `-EOPNOTSUPP`.
 - [ ] Per-DSP scheduling and failure isolation.

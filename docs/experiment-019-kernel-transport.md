@@ -1,7 +1,7 @@
 # Experiment 019: kernel transport and userspace API
 
-Status: module and library built successfully on the target. Hardware execution
-was blocked before driver probe by Secure Boot on 2026-08-05.
+Status: executed successfully on 2026-08-05 after owner-approved Machine Owner
+Key enrollment, followed by independent read-only recovery verification.
 
 ## Objective
 
@@ -59,7 +59,7 @@ transport remains started.
 This experiment submits no command, firmware, `Bill` resource, executable,
 host data buffer, or interrupt request. It does not test DSP program isolation.
 
-## Result
+## Initial signature gate
 
 The module and userspace library compiled on the target against Linux
 `7.0.0-29-generic`; the userspace build passed `-Wall -Wextra -Werror`. The
@@ -72,6 +72,29 @@ A subsequent independent read-only VFIO probe observed DMA control
 `0x0001fe00`, all 176 sampled ring words zero, and all eight DSPs ready. The
 endpoint was left unbound.
 
-The acceptance criteria remain untested until the module is signed by a key
-that the host owner enrolls. No signature-enforcement bypass is part of this
-project.
+No signature-enforcement bypass was attempted. A dedicated local key was
+created outside the repository, its public certificate was enrolled through
+MokManager, and the module was rebuilt and signed for the running kernel.
+
+## Executed result
+
+The signed module loaded and created `/dev/uad2_compute0`. Its identity ioctl
+reported ABI version one, the exact PCI and subsystem IDs, FPGA revision
+`0xa012dc0d`, extended capabilities `0x00300811`, eight DSPs, and capability
+bitmap `0x3`. Only ring transport and per-DSP reset were advertised.
+
+Transport startup published all 64 coherent ring pages. All eight DSPs then
+reported ready, DMA enabled, and command/response indices `0/0`. Reset ioctls
+for DSP0 through DSP7 each observed DMA control `0x000001ff` before and after
+the isolated pulse, with readiness preserved.
+
+Stop cleared every DSP DMA-enable bit and left all indices at `0/0`. Module
+removal left the endpoint unbound. The module submitted no command or payload.
+
+An independent read-only VFIO postflight then observed zero DMA mappings, zero
+MMIO writes by the verifier, DMA control `0x0001fe00`, all 176 sampled ring
+words zero, and all eight DSPs ready. Every acceptance criterion for this
+empty-ring transport experiment passed.
+
+This proves the reusable kernel transport and reset isolation. It does not
+prove program loading, program-level memory isolation, or job completion.
