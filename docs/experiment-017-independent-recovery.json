@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-05",
+  "transport": "vfio-pci",
+  "iommu_type": "VFIO_TYPE1_IOMMU",
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "bar0_size": 65536,
+  "device_flags": 3,
+  "dma_control": "0x0001fe00",
+  "ring_words_read": 176,
+  "zero_ring_words": 176,
+  "dsps": [
+    {"index": 0, "offset": "0x01a4", "first": "0x00000a03", "second": "0x00000a03", "ready": true},
+    {"index": 1, "offset": "0x09a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 2, "offset": "0x11a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 3, "offset": "0x19a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 4, "offset": "0x41a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 5, "offset": "0x49a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 6, "offset": "0x51a4", "first": "0x00000003", "second": "0x00000003", "ready": true},
+    {"index": 7, "offset": "0x59a4", "first": "0x00000003", "second": "0x00000003", "ready": true}
+  ],
+  "all_dsps_ready": true
+}

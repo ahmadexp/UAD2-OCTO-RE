@@ -1,0 +1,38 @@
+{
+  "experiment": "012-capability-and-audio-path-snapshot",
+  "source_sha256": "eb7ce0d6b51d043cd58ceff55fa487bf22295137b379d8b51836afbfaf6160ba",
+  "remote_binary_sha256": "dff176ae7ce4f8650c9033026de004b2ef02eac83458a9276223dda23f1eb28e",
+  "transport": "vfio-pci",
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "registers": {
+    "firmware_base_low": {"offset": "0x0030", "value": "0x2b89b176"},
+    "firmware_base_high": {"offset": "0x0034", "value": "0x00000000"},
+    "dma_control": {"offset": "0x2200", "value": "0x0001fe00"},
+    "interrupt_enable_low": {"offset": "0x2204", "value": "0x00000000"},
+    "fpga_revision": {"offset": "0x2218", "value": "0xa012dc0d"},
+    "notification_control": {"offset": "0x2220", "value": "0x00000000"},
+    "extended_capabilities": {"offset": "0x2234", "value": "0x00300811"},
+    "audio_buffer_frames_minus_one": {"offset": "0x2240", "value": "0x00000000"},
+    "audio_dma_position": {"offset": "0x2244", "value": "0x00000000"},
+    "audio_transport_control": {"offset": "0x2248", "value": "0x00000000"},
+    "audio_playback_channels": {"offset": "0x2250", "value": "0x00000000"},
+    "audio_irq_period": {"offset": "0x2258", "value": "0x00000000"},
+    "audio_record_channels": {"offset": "0x225c", "value": "0x00000000"},
+    "audio_stream_enable": {"offset": "0x2260", "value": "0x00000000"},
+    "interrupt_enable_high": {"offset": "0x2268", "value": "0x00000000"},
+    "audio_buffer_size_kib": {"offset": "0x226c", "value": "0x00000000"},
+    "audio_periodic_timer": {"offset": "0x2270", "value": "0x00000000"},
+    "unknown_22c0": {"offset": "0x22c0", "value": "0x00000000"},
+    "unknown_22c4": {"offset": "0x22c4", "value": "0x00000000"}
+  },
+  "shared_sg_table_words_read": 4096,
+  "shared_sg_table_zero_words": 4096,
+  "shared_sg_tables_all_zero": true,
+  "postcondition": {
+    "driver": "unbound",
+    "pci_command": "0x0002",
+    "bus_master_enabled": false,
+    "iommu_group": 16
+  }
+}

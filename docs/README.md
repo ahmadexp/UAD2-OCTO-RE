@@ -14,6 +14,9 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`register-hypotheses.md`](register-hypotheses.md): register map with confidence labels
 - [`official-driver-static-analysis.md`](official-driver-static-analysis.md): reproducible static findings
 - [`device-startup-sequence.md`](device-startup-sequence.md): ordered official startup state machine
+- [`dsp-model-and-memory-map.md`](dsp-model-and-memory-map.md): ADSP-21469-family evidence and data-sheet map
+- [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md): boot polling and all-eight reset isolation
+- [`firmware-container-analysis.md`](firmware-container-analysis.md): exact OCTO artifact and unresolved loader rules
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 
 ## Captured baselines
@@ -38,11 +41,21 @@ card recovered. It does not imply that later or broader operations are safe.
 | 009 | [`experiment-009-official-query.md`](experiment-009-official-query.md) | Included in procedure | Command dequeued, no response |
 | 010 | [`experiment-010-official-query-interrupt-gates.md`](experiment-010-official-query-interrupt-gates.md) | [`experiment-010-result.json`](experiment-010-result.json) | Interrupt mask accepted, no response |
 | 011 | [`experiment-011-official-ring-initializer.md`](experiment-011-official-ring-initializer.md) | [`experiment-011-result.json`](experiment-011-result.json) | Official four-page ring order accepted, DMA disabled |
+| 012 | [`experiment-012-capability-and-audio-snapshot.md`](experiment-012-capability-and-audio-snapshot.md) | [`experiment-012-result.json`](experiment-012-result.json) | Optional 4 MiB audio path absent on OCTO |
+| 013 | [`experiment-013-full-octo-start.md`](experiment-013-full-octo-start.md) | [`experiment-013-result.json`](experiment-013-result.json) | All 16 rings and eight DMA engines started and recovered |
+| 014 | [`experiment-014-016-full-start-queries.md`](experiment-014-016-full-start-queries.md) | [`experiment-014-result.json`](experiment-014-result.json) | Query 026 consumed after full startup, no response |
+| 015 | [`experiment-014-016-full-start-queries.md`](experiment-014-016-full-start-queries.md) | [`experiment-015-result.json`](experiment-015-result.json) | Connect sequence and query 026 consumed, no response |
+| 016 | [`experiment-014-016-full-start-queries.md`](experiment-014-016-full-start-queries.md) | [`experiment-016-result.json`](experiment-016-result.json) | Connect sequence and query 027 consumed, no response |
+| 017 | [`experiment-017-per-dsp-reset-isolation.md`](experiment-017-per-dsp-reset-isolation.md) | [`experiment-017-result.json`](experiment-017-result.json) | Every per-DSP reset pulse isolated, re-enabled, and recovered |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).
 Experiment 011 also has a separate
 [`independent recovery capture`](experiment-011-independent-recovery.json).
+Experiment 013 has a separate
+[`independent recovery capture`](experiment-013-independent-recovery.json).
+Experiment 017 has a separate
+[`independent recovery capture`](experiment-017-independent-recovery.json).
 
 ## Evidence labels
 

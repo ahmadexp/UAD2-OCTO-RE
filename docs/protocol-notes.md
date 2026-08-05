@@ -54,10 +54,12 @@ pulse reset, retain the global bit, and enable only DSP0. Static analysis shows
 that the official shadow begins at `0x00000001`; each DSP adds bit
 `1 << (dsp_index + 1)`, reaching `0x000001ff` for eight initialized DSPs.
 
-The official driver assigns five interrupt vectors per DSP. DSP0 uses command
-vector 0, response vector 1, and callback vectors 2 through 4. The low interrupt
-enable shadow is written at `0x2204`; selected vectors are armed at `0x2208`.
-Experiment 010 reproduced mask `0x1f` but did not receive a response.
+The official driver assigns five logical interrupt vectors per DSP. On this
+eight-DSP capability profile, logical offsets zero through three compress into
+four physical bits per DSP and logical offset four is unmapped. All callback
+vectors produce mask `0xcccccccc`; adding DSP0 response and command vectors
+produces `0xcccccccf`. The low interrupt enable shadow is written at `0x2204`;
+selected vectors are armed at `0x2208`.
 
 ## Query 026
 
@@ -67,19 +69,23 @@ Experiment 010 reproduced mask `0x1f` but did not receive a response.
 - Response ring entry: `0x80000005`, zero, IOVA low, IOVA high
 - Timeout in the official helper: 2000 ms
 
-The command hardware read index advanced in the executed experiment. The
-response index stayed at zero and the payload canary was untouched. This is a
-transport observation, not evidence that the command was successfully decoded.
+After full all-eight startup, the command hardware read index advanced. The
+response index stayed at zero and the payload canary was untouched. The same
+occurred after the official connect sequence and for query 027. This proves
+host command completion, but not DSP-side service dispatch.
 
 ## Device startup
 
 The official startup path is now ordered statically: clear interrupt state,
-pulse and retain DMA state, acknowledge low interrupts, initialize every DSP's
-command and response rings before adding its DMA bit, publish two shared 4 MiB
-DMA tables, then enable shared interrupt vector 40. See
+pulse and retain DMA state, acknowledge low interrupts, then initialize every
+DSP's command and response rings before adding its DMA bit. Optional Apollo
+audio profiles then publish two shared 4 MiB DMA tables and enable shared
+interrupt vector 40. The OCTO capability branch skips that extension. See
 [`device-startup-sequence.md`](device-startup-sequence.md).
 
 Experiments 009 and 010 exposed only response page zero and enabled DSP0 DMA
 before ring publication completed. Experiment 011 confirmed the corrected
 four-page ring initialization and official ordering while DMA remained cold,
-all pages remained unchanged, and no command was submitted.
+all pages remained unchanged, and no command was submitted. Experiment 013
+then completed the startup across all eight DSPs. Experiments 014 through 016
+established command completion but did not receive a runtime response.

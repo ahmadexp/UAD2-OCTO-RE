@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-05",
+  "experiment": "017-per-dsp-reset-isolation",
+  "source_sha256": "c16e69b1db4ba012c905e69a21d61ec69614a1df1c025a7676e24f91f12e086d",
+  "remote_binary_sha256": "042fd5803adfc780b6933641d2f5dce04e5af166ae8c29281a2242129cf4bf6d",
+  "mapped_pages": 64,
+  "dsp_engines_enabled": 8,
+  "command_entries_submitted": 0,
+  "audio_extension_programmed": false,
+  "published_all_sixteen_rings": true,
+  "pages_unchanged": true,
+  "all_dsps_ready": true,
+  "interrupt_enable_remained_zero": true,
+  "dma_control_reached": "0x000001ff",
+  "per_dsp_resets_requested": true,
+  "per_dsp_reset_pass_mask": "0x000001fe",
+  "per_dsp_resets_isolated_and_reenabled": true,
+  "mmio_writes_including_cleanup": 363,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_called": true,
+  "vfio_reset_recovered": true,
+  "success": true
+}
