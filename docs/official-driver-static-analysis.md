@@ -109,6 +109,17 @@ caller proves that the first and third wrappers surround an initial cold-boot
 HBUT update. Public code that describes these as an unconditional three-phase
 sequence therefore exceeds the available evidence.
 
+The exact UAD 11.0.1 `UAD2System.sys` dispatch layer sharpens this result. Four
+public wrappers select operations `0x67`, `0x68`, `0x69`, and `0x6a` before
+entering one common dispatcher. At the target object, operations `0x67`,
+`0x68`, and `0x69` select distinct vtable offsets `0x30`, `0x38`, and `0x40`.
+The common path invokes only the selected method. Operation `0x69` therefore
+does not automatically call the `0x67` and `0x68` methods at this dispatch
+layer. Operation `0x6a`, already identified as `LoadFPGAImage`, remains a
+separate operation. This does not prove that another higher-level caller never
+sequences the operations, but it rejects automatic bracketing inside
+`_loadBlock`.
+
 The symbolized macOS implementation labels its runtime wrapper `LoadFirmware`.
 It calls the block helper with command base `0x00120000`, expected response
 class `0x80040000`, and timeout `0x249f0` (150,000 ms). For a short payload the
@@ -183,3 +194,24 @@ These two binaries can be checked without redistributing them:
 python3 tools/inspect_updater_state.py \
   /path/to/UADPerfMon /path/to/UAD2DriverClient
 ```
+
+Six report-correlated fields are now assigned: driver version at `+0x20`, FPGA
+version at `+0x24`, DSP framework version at `+0x28`, DSP bootloader version at
+`+0x2c`, serial-number storage or reference at `+0x58`, and auxiliary FPGA
+version at `+0xa0`. Several family-dependent bytes remain unassigned. See
+[`system-information-record.md`](system-information-record.md).
+
+## Ordinary resource completion path
+
+The exact `UAD2System.sys` resource loader is verified separately:
+
+```bash
+python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
+```
+
+It confirms the two-dword pool envelope, 4 KiB copy chunks, ten ordinary
+600 ms completion waits, the resource-ID-specific `0x80070004` success form,
+and the final `0x80020044` plus `0xf0060000` status form. It also records the
+exact low-code to host-error mapping. These findings define completion
+handling for a future Linux program API, but cannot be exercised until the DSP
+framework responds. See [`bill-resource-analysis.md`](bill-resource-analysis.md).

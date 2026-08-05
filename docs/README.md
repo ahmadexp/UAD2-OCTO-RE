@@ -19,11 +19,13 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`firmware-container-analysis.md`](firmware-container-analysis.md): exact OCTO artifact and unresolved loader rules
 - [`firmware-family-inventory.md`](firmware-family-inventory.md): all 47 firmware-update wrappers and statistical comparisons
 - [`runtime-response-state.md`](runtime-response-state.md): why dequeue works without replies and the required next evidence
+- [`system-information-record.md`](system-information-record.md): official 168-byte boot/version record and recovered fields
 - [`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md): metadata-only inventory of official `Bill` resources
 - [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format, conditional transform, and runtime allocator
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`program-execution-gates.md`](program-execution-gates.md): harmless-program, API, recovery, and all-eight isolation criteria
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
+- [`reverse-engineering-status.md`](reverse-engineering-status.md): completion matrix for every requested outcome
 
 ## Captured baselines
 
@@ -31,6 +33,8 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`identity-2026-08-04.json`](identity-2026-08-04.json): allowlisted identity words
 - [`dsp-status-2026-08-04.json`](dsp-status-2026-08-04.json): eight stable DSP-ready values
 - [`vfio-2026-08-04.json`](vfio-2026-08-04.json): VFIO and IOMMU capability capture
+- [`passive-target-2026-08-05.json`](passive-target-2026-08-05.json): read-only live endpoint reconfirmation
+- [`bill-structure-11.0.1.json`](bill-structure-11.0.1.json): aggregate metadata and negative SHA-256 tests for 87 resources
 
 ## Experiments
 

@@ -23,6 +23,17 @@ PERFMON_SIGNATURES = (
     (0x1401621E5, bytes.fromhex("e846040300"), "LoadBinFile copies the complete requested byte count"),
     (0x1401621EA, bytes.fromhex("448b0f"), "dispatch reads magic from the copied buffer"),
     (0x14016228B, bytes.fromhex("ff5040"), "FBUT, GBUT, and HBUT use firmware-update vtable slot 0x40"),
+    (0x1401607EC, bytes.fromhex("448b442450"), "record +0x20 supplies the UAD-2 driver version formatter"),
+    (0x140160DEC, bytes.fromhex("448b442454"), "record +0x24 supplies the FPGA version formatter"),
+    (0x140160FFC, bytes.fromhex("448b442458"), "record +0x28 supplies the DSP framework version formatter"),
+    (0x14016118C, bytes.fromhex("448b44245c"), "record +0x2c supplies the DSP bootloader version formatter"),
+    (0x140160D6C, bytes.fromhex("4c8d442478"), "record +0x58 is passed to the serial-number formatter"),
+    (0x140160EAC, bytes.fromhex("448b8424d0000000"), "record +0xa0 supplies the auxiliary FPGA version formatter"),
+    (0x14018B59C, bytes.fromhex("488d151d083100"), "report labels the preceding formatted value UAD-2 driver version"),
+    (0x14018B63E, bytes.fromhex("488d155b073100"), "report labels the preceding formatted value DSP bootloader version"),
+    (0x14018B6E1, bytes.fromhex("488d1598063100"), "report labels the preceding formatted value DSP framework version"),
+    (0x14018B784, bytes.fromhex("488d1595063100"), "report labels the preceding formatted value FPGA version"),
+    (0x14018B83E, bytes.fromhex("488d15c3053100"), "report labels the conditional formatted value Aux FPGA version"),
 )
 
 CLIENT_SIGNATURES = (
@@ -70,6 +81,18 @@ def inspect(perfmon: Path, client: Path) -> dict[str, object]:
     return {
         "schema": 1,
         "all_signatures_match": all(item["all_signatures_match"] for item in binaries),
+        "system_info_record": {
+            "size_bytes": 168,
+            "fields": [
+                {"offset": "0x20", "size": 4, "meaning": "UAD-2 driver version"},
+                {"offset": "0x24", "size": 4, "meaning": "FPGA version"},
+                {"offset": "0x28", "size": 4, "meaning": "DSP framework version"},
+                {"offset": "0x2c", "size": 4, "meaning": "DSP bootloader version"},
+                {"offset": "0x58", "size": None, "meaning": "serial-number storage or reference"},
+                {"offset": "0xa0", "size": 4, "meaning": "auxiliary FPGA version"},
+            ],
+            "unassigned_bytes_remain": True,
+        },
         "binaries": binaries,
     }
 

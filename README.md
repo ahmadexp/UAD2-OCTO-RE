@@ -30,9 +30,11 @@ the extended command header but stopped before consuming its first data
 descriptor, with no response or persistent-state evidence. The updater requires
 a restart after PCIe firmware updates, so further submission is paused. The
 ordinary `Bill` resource envelope, host transform, all four allocator pools,
-and 87 official resource instances are recovered, but their DSP-side payloads
-remain opaque. The next milestone is a valid runtime response followed by a
-target-specific harmless program.
+87 official resource instances, and both completion forms are recovered, but
+their DSP-side payloads remain opaque. Four direct SHA-256 layouts match none
+of the resources. Six fields in the official 168-byte system-information
+record are assigned. The next milestone is a valid runtime response followed
+by a target-specific harmless program.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -61,6 +63,7 @@ not the known large-block framing.
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
+| Official system-information record | Six fields assigned; live OCTO response missing | [`docs/system-information-record.md`](docs/system-information-record.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
 | DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
@@ -96,11 +99,13 @@ these tools on an older profile.
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
 - [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md): full installer firmware metadata and comparisons
 - [`docs/runtime-response-state.md`](docs/runtime-response-state.md): explicit boot/runtime state evidence
+- [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
 - [`docs/driver-api.md`](docs/driver-api.md): bounded kernel transport and userspace ABI
 - [`docs/program-execution-gates.md`](docs/program-execution-gates.md): program, API, and all-eight isolation evidence gates
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
+- [`docs/reverse-engineering-status.md`](docs/reverse-engineering-status.md): exact completion and blocker matrix
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
 - [`kernel/`](kernel): read-only identity probe and bounded OCTO transport module
 - [`lib/`](lib): userspace compute API and diagnostic client
@@ -199,6 +204,19 @@ obtained local copies:
 ```bash
 python3 tools/inspect_updater_state.py \
   /path/to/UADPerfMon /path/to/UAD2DriverClient
+```
+
+The ordinary DSP resource loader and completion parser can be verified with:
+
+```bash
+python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
+```
+
+Embedded resource structure and narrow hash hypotheses can be summarized
+without emitting resource bytes:
+
+```bash
+python3 tools/analyze_bill_resources.py --recursive /path/to/extracted-cabinet
 ```
 
 ## Prior work

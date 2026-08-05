@@ -283,6 +283,39 @@ class UpdaterStateInspectorTests(unittest.TestCase):
                     module.PERFMON_SIGNATURES,
                 )
 
+    def test_recovered_system_info_fields_fit_the_record(self):
+        module = load_tool("inspect_updater_state")
+        fields = [
+            (0x20, 4),
+            (0x24, 4),
+            (0x28, 4),
+            (0x2C, 4),
+            (0x58, 1),
+            (0xA0, 4),
+        ]
+        self.assertTrue(all(offset + size <= 168 for offset, size in fields))
+
+
+class BillLoaderInspectorTests(unittest.TestCase):
+    def test_signatures_and_completion_mapping_are_explicit(self):
+        module = load_tool("inspect_bill_loader")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 16)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertEqual(
+            sorted(module.FINAL_STATUS_TO_HOST_ERROR),
+            ["0x0001", "0x0002", "0x0003", "0x0004", "0x0005", "0x0008", "0x0009"],
+        )
+
+    def test_unknown_system_driver_is_refused(self):
+        module = load_tool("inspect_bill_loader")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not UAD2System")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash mismatch"):
+                module.inspect(pathlib.Path(candidate.name))
+
 
 class BillContainerInspectorTests(unittest.TestCase):
     def test_parser_reproduces_official_tail_transform(self):
@@ -363,6 +396,28 @@ class BillResourceScannerTests(unittest.TestCase):
         module = load_tool("scan_bill_resources")
         hostile = struct.pack("<4s4I", b"Bill", 1, 0x02000001, 0xFFFFFFFF, 1)
         self.assertEqual(module.scan_bytes(hostile), [])
+
+
+class BillResourceAnalyzerTests(unittest.TestCase):
+    def test_analyzer_reports_prefix_sizes_and_rejects_direct_sha_hypotheses(self):
+        module = load_tool("analyze_bill_resources")
+        body = bytes(range(32)) + bytes(12)
+        resource = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "module.bin"
+            path.write_bytes(resource + resource)
+            result = module.analyze_files([path])
+
+        self.assertEqual(result["resource_instances"], 2)
+        self.assertEqual(result["unique_resource_sha256"], 1)
+        self.assertEqual(result["duplicate_instances"], 1)
+        self.assertEqual(
+            result["distributions"]["opaque_prefix_bytes_after_header"], {"32": 2}
+        )
+        for hypothesis in result["direct_sha256_hypotheses"].values():
+            self.assertEqual(hypothesis, {"eligible": 2, "matches": 0})
 
 
 class Experiment011SourceTests(unittest.TestCase):

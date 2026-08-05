@@ -31,6 +31,13 @@ does not prove that `-0x5c` is the card's current result under Linux because
 the Linux transport has not reproduced the Windows control interface above
 the ring layer.
 
+The record is no longer wholly opaque. The updater's own report labels assign
+driver, FPGA, DSP framework, DSP bootloader, serial, and auxiliary FPGA fields.
+The recovered layout is documented in
+[`system-information-record.md`](system-information-record.md). A captured
+operation-`0x6f` response is still required to connect those host fields to the
+card's current state.
+
 ## Why the full HBUT experiment did not resolve it
 
 The exact PCIe driver confirms Experiment 021's extended header and
@@ -50,20 +57,23 @@ Plausible remaining categories are deliberately unordered:
 - an inner-container validation path that stalls before reporting failure.
 
 The adjacent commands `0x000d0000` and `0x000e0000` are not evidence that they
-must bracket the initial update. Submitting them speculatively would add risk
-without a discriminating prediction.
+must bracket the initial update. The exact `UAD2System.sys` common dispatcher
+selects one distinct target method for each of operations `0x67`, `0x68`, and
+`0x69`; operation `0x69` does not automatically invoke the other two there.
+Submitting the neighboring commands speculatively would add risk without a
+discriminating prediction.
 
 ## Next evidence, in order
 
-1. Trace the official PCIe driver's caller graph from firmware operation
-   `0x69` through device state checks and the exact `LoadFirmware` vtable slot.
-2. Recover all fields and result branches in the 168-byte system-information
-   record and correlate them with updater messages.
-3. Capture a lawful official update on disposable, recoverable hardware at the
+1. Capture operation `0x6f` through the lawful official stack and correlate
+   the recovered 168-byte fields with the OCTO's live state.
+2. Capture a lawful official update on disposable, recoverable hardware at the
    driver boundary, including operation order, return values, resets, and
    timing. Do not capture or publish secrets.
-4. Identify the first device-side consumer of the HBUT prefix or compatibility
+3. Identify the first device-side consumer of the HBUT prefix or compatibility
    ID through static analysis.
+4. Identify the DSP-side consumer of a form-zero `Bill` resource and decode
+   one target-compatible inner core.
 5. Only after volatility and recovery are demonstrated, define a new bounded
    hardware experiment with one changed variable and a unique expected result.
 
