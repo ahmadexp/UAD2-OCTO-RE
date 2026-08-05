@@ -1,0 +1,36 @@
+{
+  "experiment": "021-exact-octo-hbut-chain",
+  "artifact_sha256": "f503787c0f253fc9713a47ae7e15adff242a6dde647dae7cb8ab6550ed976447",
+  "expected_file_size": 2558096,
+  "hbut_structure_matches": true,
+  "live_fpga_compatible": true,
+  "loader_command_words": [
+    "0x40120000",
+    "0x0009c226"
+  ],
+  "payload_descriptors": 625,
+  "mapped_pages": 691,
+  "mapped_bytes": 2830336,
+  "connect_commands_consumed": true,
+  "loader_descriptors_consumed": false,
+  "command_progress_seen": true,
+  "final_command_read_index": 3,
+  "response_descriptor_consumed": false,
+  "final_response_read_index": 0,
+  "response_written": false,
+  "response_words": [
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5"
+  ],
+  "writes_confined_to_response_prefix": true,
+  "all_dsps_ready_after_load": true,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_recovered": true,
+  "iommu_unmapped": true,
+  "post_run_unbound": true,
+  "post_run_bus_master_enabled": false,
+  "polls_ms": 150000,
+  "success": false
+}

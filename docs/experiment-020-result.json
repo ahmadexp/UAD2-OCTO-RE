@@ -1,0 +1,46 @@
+{
+  "experiment": "020-resource-layout-snapshot",
+  "transport": "vfio-pci",
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "identical_across_all_eight_dsps": true,
+  "pools": [
+    {
+      "type": 0,
+      "base": "0x00004000",
+      "size": "0x000e0000",
+      "scratch": "0x00000000",
+      "free_start": "0x00004000",
+      "free_size": "0x000e0000",
+      "allocation_direction": "low-to-high"
+    },
+    {
+      "type": 1,
+      "base": "0x00001fff",
+      "size": "0x000c5000",
+      "scratch": "0x00000080",
+      "free_start": "0x00002080",
+      "free_size": "0x000c4f80",
+      "allocation_direction": "high-to-low"
+    },
+    {
+      "type": 2,
+      "base": "0x0000a9b9",
+      "size": "0x00092800",
+      "scratch": "0x00000080",
+      "free_start": "0x0000aa3a",
+      "free_size": "0x00092780",
+      "allocation_direction": "high-to-low"
+    },
+    {
+      "type": 3,
+      "base": "0x00ff5cd2",
+      "size": "0x0800832e",
+      "scratch": "0x00008000",
+      "free_start": "0x00ffdcd2",
+      "free_size": "0x0800032e",
+      "allocation_direction": "high-to-low"
+    }
+  ],
+  "card_restored_unbound": true
+}

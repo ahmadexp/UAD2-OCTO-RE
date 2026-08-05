@@ -25,11 +25,14 @@ dequeued, and explicit cleanup plus VFIO reset recovers the cold state.
 General-purpose DSP execution is **not yet achieved**. The queries receive no
 reply because the card appears to be in a boot/framework state without the
 runtime service expected by those commands. The exact matching official OCTO
-firmware-update container has been identified offline, but it is potentially
-persistent and has not been loaded. The ordinary `Bill` resource envelope,
-conditional transform, and runtime allocation strategy are recovered
-statically, but the DSP-side payload remains opaque. The next milestone is a
-valid runtime response followed by a target-specific harmless program.
+firmware-update container has been identified. One bounded submission consumed
+the extended command header but stopped before consuming its first data
+descriptor, with no response or persistent-state evidence. The updater requires
+a restart after PCIe firmware updates, so further submission is paused. The
+ordinary `Bill` resource envelope, host transform, all four allocator pools,
+and 87 official resource instances are recovered, but their DSP-side payloads
+remain opaque. The next milestone is a valid runtime response followed by a
+target-specific harmless program.
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -45,8 +48,10 @@ valid runtime response followed by a target-specific harmless program.
 | Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
 | DSP family and data-sheet map | Strong ADSP-21469 evidence | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
-| Exact matching firmware container | Identified offline, not loaded | [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md) |
+| Exact matching firmware container | Header descriptor consumed, first data descriptor not consumed; potentially persistent | [`docs/experiment-021-runtime-load.md`](docs/experiment-021-runtime-load.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
+| Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
+| Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
 | DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
@@ -81,6 +86,7 @@ these tools on an older profile.
 - [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
+- [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
 - [`docs/driver-api.md`](docs/driver-api.md): bounded kernel transport and userspace ABI
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
@@ -144,6 +150,11 @@ not justified.
 19. Bind the signed Linux transport module, publish all 64 coherent ring pages,
     exercise all eight per-DSP reset paths, stop, unload, and independently
     confirm exact cold-state recovery.
+20. Snapshot all four allocator pools and scratch reservations for all eight
+    DSPs through a read-only VFIO BAR mapping.
+21. Submit the exact OCTO HBUT using the official large-block chain. The header
+    descriptor was consumed, the first data descriptor was not, no response was
+    written, and reset plus IOMMU teardown recovered the cold state.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

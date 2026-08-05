@@ -17,6 +17,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`dsp-model-and-memory-map.md`](dsp-model-and-memory-map.md): ADSP-21469-family evidence and data-sheet map
 - [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md): boot polling and all-eight reset isolation
 - [`firmware-container-analysis.md`](firmware-container-analysis.md): exact OCTO artifact and unresolved loader rules
+- [`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md): metadata-only inventory of official `Bill` resources
 - [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format, conditional transform, and runtime allocator
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
@@ -51,6 +52,8 @@ card recovered. It does not imply that later or broader operations are safe.
 | 017 | [`experiment-017-per-dsp-reset-isolation.md`](experiment-017-per-dsp-reset-isolation.md) | [`experiment-017-result.json`](experiment-017-result.json) | Every per-DSP reset pulse isolated, re-enabled, and recovered |
 | 018 | [`experiment-018-loader-response-probes.md`](experiment-018-loader-response-probes.md) | [`experiment-018-result.json`](experiment-018-result.json) | Three incomplete loader objects consumed, no response, exact recovery |
 | 019 | [`experiment-019-kernel-transport.md`](experiment-019-kernel-transport.md) | [`experiment-019-result.json`](experiment-019-result.json) | Signed kernel transport passed start, all-eight reset, stop, unload, and recovery |
+| 020 | [`experiment-020-resource-pools.md`](experiment-020-resource-pools.md) | [`experiment-020-result.json`](experiment-020-result.json) | All four resource pools recovered identically across eight DSPs, zero writes |
+| 021 | [`experiment-021-runtime-load.md`](experiment-021-runtime-load.md) | [`experiment-021-result.json`](experiment-021-result.json) | Exact compatible HBUT chain timed out safely; no response write and full recovery |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

@@ -92,8 +92,13 @@ an offset and size in dwords. One pool takes space from the low end of a free
 range; the other takes space from its high end. Allocation creates a 32-byte
 record containing the resource pointer, assigned offset, size, and reference
 count. Reusing the same resource increments that reference count. The pool's
-absolute base and bounds are not yet identified, so an offset cannot safely be
-chosen for a new OCTO program.
+exact OCTO registers and reservations were recovered in Experiment 020. Pool 0
+starts at `0x4000`, has `0xe0000` dwords available, and allocates low to high.
+Pools 1 through 3 allocate high to low after their aligned scratch
+reservations. See
+[`experiment-020-resource-pools.md`](experiment-020-resource-pools.md) for the
+complete all-eight-DSP map. A first pool-0 allocation therefore receives
+offset `0x4000` when the runtime pool is otherwise empty.
 
 The completion parser recognizes a four-dword response with header
 `0x80020044`, zero in dwords one and two, and status class `0xf0060000` in the
@@ -129,6 +134,13 @@ memory reservations are compatible with this OCTO revision. Loading them on
 the OCTO is not justified until a valid framework response and target-specific
 resource inventory are available.
 
+The official 11.0.1 installer also contains valid embedded `Bill` resources in
+OCTO-capable 64-bit plug-in modules. `tools/scan_bill_resources.py` inventories
+their offsets, headers, and hashes without extracting or redistributing vendor
+payloads. The inventory confirms DSP-generation-two resources and resource
+types 0 through 3, but the inner bodies remain opaque. See
+[`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md).
+
 ## Proven and unresolved
 
 Confirmed statically:
@@ -145,5 +157,4 @@ Still unresolved:
 - The preserved inner-core encoding.
 - Segment and relocation records inside that core, if any.
 - DSP-side validation or authentication.
-- Absolute runtime pool bases, bounds, and reserved ranges.
 - OCTO-specific resource IDs, entry points, and memory reservations.

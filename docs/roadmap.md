@@ -31,13 +31,32 @@ buffers, report completion, and recover from failure.
 - [x] Recover the `Bill` program-resource outer header and deterministic host
       tail transform, including the payload-form branch.
 - [x] Recover its two-dword transmit envelope and low/high free-list allocator.
-- [ ] Identify absolute pool bases, bounds, and reserved ranges.
+- [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
+      DSPs with a read-only VFIO snapshot.
 - [ ] Decode opaque payloads into segments and relocations, if those concepts
       are present in the DSP-side format.
 
-The exact `HBUT` artifact matches the target's FPGA revision, but the updater
-warns against power loss. It remains outside the experiment boundary until the
-persistent update path is separated from the volatile DSP framework loader.
+The exact `HBUT` artifact matches the target's FPGA revision. The symbolized
+driver maps operation `0x69` to `LoadFirmware`, while `LoadFPGAImage` is the
+separate operation `0x6a`. The updater nevertheless requires a restart after a
+PCIe firmware update, so this distinction does not prove volatility. Experiment
+021 consumed only the extended header and recovered safely; further full-image
+submission is paused pending proof of the persistence boundary.
+
+## Current blockers
+
+| Goal | Blocking evidence | Required evidence before implementation |
+|---|---|---|
+| Valid DSP response | Resident connect and query commands dequeue but never write the response ring | Identify and safely enter the runtime state that implements query services |
+| Payload authentication and transform | HBUT and official `Bill` bodies remain opaque; no host-side verifier was found for form-zero `Bill` objects | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
+| Relocations and runtime reservations | Pool bounds are known, but no decoded segment, entry-point, or relocation record is visible | Decode one target-compatible program resource and correlate its allocations |
+| Harmless DSP0 program | No proven OCTO executable format or entry ABI exists | Valid framework response plus a decoded, target-specific minimal program format |
+| General-purpose job API | Program handles, completion IDs, and buffer ownership would currently be guesses | One real program load, bounded buffer exchange, and completion response |
+| Eight-DSP program isolation | Reset isolation is proven only with empty transports | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
+| Exact DSP package | Board photograph does not resolve the package marking | A sharp, perpendicular macro photograph of one DSP marking |
+
+The transport module remains fail-closed for program, buffer, submit, and wait
+operations until these evidence gates are met.
 
 ## Phase 3: first controlled program
 
