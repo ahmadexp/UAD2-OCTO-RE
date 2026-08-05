@@ -28,3 +28,5 @@ jobs:
           for file in tools/*.c; do
             cc -fsyntax-only -Wall -Wextra -Werror "$file"
           done
+      - name: Userspace compute library
+        run: make -C lib

@@ -33,6 +33,19 @@ class MmioReadTests(unittest.TestCase):
         self.assertEqual(module.EXPECTED_DEVICE, 0x0002)
         self.assertEqual(module.EXPECTED_BAR0_SIZE, 65536)
 
+    def test_resource_layout_covers_eleven_registers_for_eight_dsps(self):
+        module = load_tool("mmio_read")
+        words = module.PROFILES["resource-layout"]
+        self.assertEqual(len(words), 88)
+        self.assertEqual(len({offset for offset, _name in words}), 88)
+        self.assertEqual(module.dsp_register_base(0), 0x0000)
+        self.assertEqual(module.dsp_register_base(4), 0x4000)
+        self.assertEqual(module.dsp_register_base(7), 0x5800)
+        self.assertTrue(all(offset % 4 == 0 for offset, _name in words))
+        self.assertTrue(
+            all(offset + 4 <= module.EXPECTED_BAR0_SIZE for offset, _name in words)
+        )
+
     def test_uio_profile_matches_octo_and_allowlist(self):
         module = load_tool("uio_mmio_read")
         self.assertEqual(module.EXPECTED_VENDOR, 0x1A00)
@@ -184,6 +197,87 @@ class UadContainerInspectorTests(unittest.TestCase):
                 module.inspect(path)
 
 
+class BillContainerInspectorTests(unittest.TestCase):
+    def test_parser_reproduces_official_tail_transform(self):
+        module = load_tool("inspect_bill_container")
+        resource_id = 0x020000C2
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", resource_id, 0x02010001, len(body), 3
+        ) + body
+        result = module.parse(data)
+        expected_tail = module.replacement_stream(resource_id, 3)
+
+        self.assertEqual(result["resource_id"], "0x020000c2")
+        self.assertEqual(result["dsp_generation"], 2)
+        self.assertEqual(result["payload_form"], 1)
+        self.assertTrue(result["tail_transform_applied"])
+        self.assertEqual(result["preserved_bytes"], len(data) - 12)
+        self.assertEqual(result["transformed"][-12:], expected_tail)
+        self.assertFalse(result["input_tail_already_transformed"])
+
+    def test_payload_form_zero_is_copied_unchanged(self):
+        module = load_tool("inspect_bill_container")
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        result = module.parse(data)
+
+        self.assertEqual(result["payload_form"], 0)
+        self.assertFalse(result["tail_transform_applied"])
+        self.assertIsNone(result["input_tail_already_transformed"])
+        self.assertEqual(result["transformed"], data)
+
+    def test_replacement_stream_starts_with_complemented_id_big_endian(self):
+        module = load_tool("inspect_bill_container")
+        stream = module.replacement_stream(0x020000C2, 2)
+        self.assertEqual(stream[:4], bytes.fromhex("fdffff3d"))
+        next_value = (((~0x020000C2) & 0xFFFFFFFF) * 0xBC8F) % 0x7FFFFFFF
+        self.assertEqual(stream[4:8], next_value.to_bytes(4, "big"))
+
+    def test_parser_rejects_inconsistent_size(self):
+        module = load_tool("inspect_bill_container")
+        data = struct.pack("<4s4I", b"Bill", 1, 0x02000000, 16, 1) + bytes(12)
+        with self.assertRaisesRegex(ValueError, "declared body size"):
+            module.parse(data)
+
+    def test_resource_command_contains_exact_pool_header(self):
+        module = load_tool("inspect_bill_container")
+        body = bytes(range(32)) + bytes(12)
+        data = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+
+        low = module.build_command(data, 0x1234, "low-to-high")
+        high = module.build_command(data, 0x5678, "high-to-low")
+        self.assertEqual(struct.unpack_from("<2I", low), (0x00010012, 0x1234))
+        self.assertEqual(struct.unpack_from("<2I", high), (0x00040012, 0x5678))
+        self.assertEqual(low[8:], data)
+
+
+class BillResourceScannerTests(unittest.TestCase):
+    def test_scanner_finds_valid_embedded_resources_and_rejects_false_magic(self):
+        module = load_tool("scan_bill_resources")
+        body = bytes(range(32)) + bytes(12)
+        resource = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        data = b"prefixBillfalse" + bytes(7) + resource + b"suffix"
+
+        results = module.scan_bytes(data)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["offset"], data.index(resource))
+        self.assertEqual(results[0]["resource_id"], "0x020000c2")
+        self.assertEqual(results[0]["input_sha256"], __import__("hashlib").sha256(resource).hexdigest())
+
+    def test_scanner_caps_untrusted_declared_size(self):
+        module = load_tool("scan_bill_resources")
+        hostile = struct.pack("<4s4I", b"Bill", 1, 0x02000001, 0xFFFFFFFF, 1)
+        self.assertEqual(module.scan_bytes(hostile), [])
+
+
 class Experiment011SourceTests(unittest.TestCase):
     def test_probe_stays_below_dma_and_command_boundary(self):
         source = (ROOT / "tools" / "vfio_official_ring_init.c").read_text()
@@ -207,6 +301,42 @@ class Experiment012SourceTests(unittest.TestCase):
         self.assertNotIn("mmio_write32", source)
         self.assertIn('PROT_READ, MAP_SHARED', source)
         self.assertIn('\\"mmio_writes\\": 0', source)
+
+
+class Experiment020SourceTests(unittest.TestCase):
+    def test_resource_layout_snapshot_is_read_only_and_complete(self):
+        source = (ROOT / "tools" / "vfio_resource_layout.c").read_text()
+        self.assertIn("#define DSP_COUNT 8", source)
+        self.assertIn("PROT_READ, MAP_SHARED", source)
+        self.assertIn("dma_mappings", source)
+        self.assertIn("mmio_writes", source)
+        self.assertNotIn("VFIO_IOMMU_MAP_DMA", source)
+        self.assertNotIn("mmio_write32", source)
+        for offset in ("0x184", "0x188", "0x18c", "0x190", "0x194", "0x198", "0x19c"):
+            self.assertIn(offset, source)
+
+
+class Experiment021SourceTests(unittest.TestCase):
+    def test_runtime_loader_is_exact_bounded_and_excludes_fpga_operation(self):
+        source = (ROOT / "tools" / "vfio_runtime_load.c").read_text()
+        wrapper = (ROOT / "tools" / "uad2-vfio-runtime-load.sh").read_text()
+        self.assertIn("#define EXPECTED_FILE_SIZE 2558096U", source)
+        self.assertIn("#define EXPECTED_FPGA_REVISION 0xa012dc0dU", source)
+        self.assertIn("#define LOADER_COMMAND_BASE 0x00120000U", source)
+        self.assertIn("#define LOADER_EXTENDED_FLAG 0x40000000U", source)
+        self.assertIn("header_buffer[1] = loader_command[1]", source)
+        self.assertIn("ring_entry(memory, 0, 0, 2), 2", source)
+        self.assertIn("VFIO_IOMMU_MAP_DMA", source)
+        self.assertIn("VFIO_IOMMU_UNMAP_DMA", source)
+        self.assertIn("VFIO_DEVICE_RESET", source)
+        self.assertNotIn("0x00130000", source)
+        self.assertNotIn("0x6a", source.lower())
+        self.assertIn(
+            "f503787c0f253fc9713a47ae7e15adff242a6dde647dae7cb8ab6550ed976447",
+            wrapper,
+        )
+        self.assertIn("UAD2_ALLOW_PERSISTENT_FIRMWARE_EXPERIMENT", wrapper)
+        self.assertIn("YES_I_ACCEPT_CARD_FIRMWARE_RISK", wrapper)
 
 
 class Experiment013SourceTests(unittest.TestCase):
@@ -244,6 +374,61 @@ class Experiment014SourceTests(unittest.TestCase):
         self.assertIn("#define SEQUENCE_COMMAND 0x00270001", source)
         self.assertIn("#define SEQUENCE_RESPONSE_HEADER 0x800d0002", source)
         self.assertIn('strcmp(argv[1], "--connect")', source)
+
+
+class Experiment018SourceTests(unittest.TestCase):
+    def test_loader_probe_uses_bounded_pages_and_recovery(self):
+        source = (ROOT / "tools" / "vfio_loader_rejection.c").read_text()
+        self.assertIn("#define PAGE_COUNT 67", source)
+        self.assertIn("#define LOADER_COMMAND_BASE 0x00120000", source)
+        self.assertIn("#define LOADER_RESPONSE_CLASS 0x80040000", source)
+        self.assertIn("payload_stat.st_size > (off_t)PAGE_SIZE_4K", source)
+        self.assertIn("ioctl(device, VFIO_DEVICE_RESET)", source)
+        self.assertNotIn("write32(bar, 0x8000", source)
+        self.assertNotIn("write32(bar, 0xa000", source)
+
+    def test_official_and_alternate_framings_are_explicit(self):
+        source = (ROOT / "tools" / "vfio_loader_rejection.c").read_text()
+        self.assertIn('strcmp(argv[1], "--single-buffer")', source)
+        self.assertIn('"official-chained-send-block"', source)
+        self.assertIn('"alternate-single-buffer-with-response-class"', source)
+
+
+class ComputeDriverContractTests(unittest.TestCase):
+    def test_uapi_exposes_capabilities_without_raw_mmio(self):
+        header = (ROOT / "include" / "uapi" / "uad2_compute.h").read_text()
+        self.assertIn("UAD2_CAP_RING_TRANSPORT", header)
+        self.assertIn("UAD2_CAP_PROGRAM_ISOLATION", header)
+        self.assertIn("UAD2_COMPUTE_IOC_GET_DSP_STATUS", header)
+        self.assertNotIn("MMIO", header)
+        self.assertNotIn("PHYSICAL", header)
+        self.assertNotIn("SUBMIT_COMMAND", header)
+
+    def test_driver_is_locked_to_exact_octo_and_bounded_pages(self):
+        source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        self.assertIn("#define UAD2_SUBDEVICE_OCTO 0x0005", source)
+        self.assertIn("#define UAD2_BAR0_SIZE 0x10000", source)
+        self.assertIn("#define UAD2_DSP_COUNT 8", source)
+        self.assertIn("#define UAD2_RING_COUNT 2", source)
+        self.assertIn("#define UAD2_RING_PAGES 4", source)
+        self.assertIn("dma_alloc_coherent", source)
+        self.assertNotIn(".mmap", source)
+        self.assertNotIn(".write =", source)
+        self.assertNotIn(".read =", source)
+
+    def test_driver_advertises_only_validated_operations(self):
+        source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        capability_assignment = source[source.index(".capabilities =") :]
+        capability_assignment = capability_assignment[: capability_assignment.index(";")]
+        self.assertIn("UAD2_CAP_RING_TRANSPORT", capability_assignment)
+        self.assertIn("UAD2_CAP_PER_DSP_RESET", capability_assignment)
+        self.assertNotIn("UAD2_CAP_PROGRAM_LOAD", capability_assignment)
+        self.assertNotIn("UAD2_CAP_DMA_BUFFERS", capability_assignment)
+        self.assertNotIn("UAD2_CAP_JOB_COMPLETION", capability_assignment)
+
+    def test_compute_operations_fail_closed_in_userspace(self):
+        source = (ROOT / "lib" / "uad2_compute.c").read_text()
+        self.assertEqual(source.count("return -EOPNOTSUPP;"), 4)
 
 
 if __name__ == "__main__":

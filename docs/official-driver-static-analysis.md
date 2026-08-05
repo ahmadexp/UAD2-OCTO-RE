@@ -95,11 +95,28 @@ They are outside the current safety boundary and must not be issued merely
 because their framing is known.
 
 The symbolized macOS implementation labels its runtime wrapper `LoadFirmware`.
-It calls the block helper with command base `0x80040000`, argument
-`0x00120000`, and timeout `0x249f0` (150,000 ms). The block helper handles
-bounded command buffers through ring DMA references and waits on the ordinary
-response-descriptor mechanism. This proves that a volatile command-ring loader
-exists, but does not yet identify its accepted image format.
+It calls the block helper with command base `0x00120000`, expected response
+class `0x80040000`, and timeout `0x249f0` (150,000 ms). For a short payload the
+helper emits one DMA descriptor for a header dword containing
+`0x00120000 | (payload_dwords + 1)`, followed by DMA descriptors for the
+payload pages. It queues a four-dword response descriptor first and accepts a
+reply whose first dword has class `0x8004xxxx`. This proves that a command-ring
+block loader exists, but does not establish whether its caller ultimately
+changes persistent state or identify its accepted inner image format.
+
+For payloads of at least `0x3fffc` bytes, `_sendBlock` uses its recovered
+extended-length form instead: the two header dwords are `command_base |
+0x40000000` and `payload_dwords + 2`. The 2,558,096-byte OCTO HBUT therefore
+uses `0x40120000, 0x0009c226`, followed by 625 page-bounded DMA descriptors.
+
+The independently analyzed official Windows implementation of this device
+logic has SHA-256
+`3e62923ca25fa9c987eddf4ff7d81edfd4245973752bf16ccf61ef18d9c01ed8`.
+Its `LoadFirmware` method at image address `0x1400102d0` calls `_sendBlock` at
+`0x1400108a8` with command `0x00120000`, response class `0x80040000`, and a
+150,000 ms timeout. The descriptor initializer at `0x1400104c0` accepts fewer
+than `0x10000` dwords per page reference and sets bit 31. This independently
+confirms the extended header plus page-bounded chain used in Experiment 021.
 
 Separate static analysis of UAD 11.0.1 `UADPerfMon` shows that `FBUT`, `GBUT`,
 and `HBUT` select the firmware-update interface. The exact OCTO `HBUT` artifact

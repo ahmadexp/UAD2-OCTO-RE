@@ -28,6 +28,31 @@ PROFILES = {
 }
 
 
+def dsp_register_base(dsp: int) -> int:
+    """Return the per-DSP register window recovered from CPcieDSP."""
+    return (0x2000 if dsp > 3 else 0) + dsp * 0x800
+
+
+RESOURCE_LAYOUT_FIELDS = (
+    (0x010, "pool0_base"),
+    (0x014, "pool2_base"),
+    (0x018, "pool1_base"),
+    (0x01C, "pool3_base"),
+    (0x184, "pool0_size"),
+    (0x188, "pool2_size"),
+    (0x18C, "pool1_size"),
+    (0x190, "pool3_size"),
+    (0x194, "pool2_scratch"),
+    (0x198, "pool1_scratch"),
+    (0x19C, "pool3_scratch"),
+)
+PROFILES["resource-layout"] = [
+    (dsp_register_base(dsp) + relative, f"dsp{dsp}_{name}")
+    for dsp in range(8)
+    for relative, name in RESOURCE_LAYOUT_FIELDS
+]
+
+
 def read_hex(path: pathlib.Path) -> int:
     return int(path.read_text().strip(), 0)
 
@@ -101,12 +126,6 @@ def main() -> int:
     finally:
         os.close(fd)
 
-    identity_bytes = b"".join(
-        bytes.fromhex(item["bytes_le"]) for item in words[:4]
-    )
-    printable_identity = "".join(
-        chr(byte) if 32 <= byte < 127 else "." for byte in identity_bytes
-    )
     result = {
         "schema": 1,
         "bdf": args.bdf,
@@ -117,9 +136,15 @@ def main() -> int:
         ),
         "pci_command": f"0x{command:04x}",
         "profile": args.profile,
-        "identity_ascii": printable_identity,
         "words": words,
     }
+    if args.profile == "identity":
+        identity_bytes = b"".join(
+            bytes.fromhex(item["bytes_le"]) for item in words[:4]
+        )
+        result["identity_ascii"] = "".join(
+            chr(byte) if 32 <= byte < 127 else "." for byte in identity_bytes
+        )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

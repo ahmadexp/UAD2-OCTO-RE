@@ -14,10 +14,10 @@ observed. An address appearing here does not authorize writing it.
 | `0x2208` | Interrupt arm or acknowledge | Bounded VFIO writes only | Official DSP 0 initialization sequence tested |
 | `0x2218` | FPGA revision | Read | Observed as `0xa012dc0d`, v2 bit set |
 | `0x2234` | Extended capabilities | Read | Observed as `0x00300811`, DSP count 8 |
-| `0x3800` | Mixer or shared SRAM window | Do not read yet | Unobserved |
+| `0x3800` | Device mixer register block | Read only before any write experiment | Confirmed statically in `CPcieDeviceMixer::Initialize` |
 | `0x6000` | DSP 4 command ring window | Bounded VFIO reads and writes | Observed, published and restored in Experiment 013 |
 | `0x8000..0xbfff` | Optional audio playback/capture scatter-gather tables | Read only on OCTO | All 4,096 dwords observed zero; static branch proves inapplicable to subsystem `0005` |
-| `0xc000..0xcfff` | Firmware mailbox and descriptors | Do not read yet | Unobserved |
+| `0xc000..0xcfff` | Optional AudioExtension notification and descriptor SRAM | Read only on OCTO | Confirmed statically; not a firmware mailbox |
 
 Candidate DSP ring formula from related endpoints:
 

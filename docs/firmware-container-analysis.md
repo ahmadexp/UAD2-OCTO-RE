@@ -17,9 +17,6 @@ identity is:
 
 The compatibility ID exactly matches BAR `0x2218` on the tested card. This is
 direct evidence that the installer artifact targets this OCTO FPGA revision.
-It does not establish that the file is a volatile DSP runtime image. The
-official updater labels it a firmware update and presents a do-not-power-off
-warning, so it must be treated as potentially persistent.
 
 The 16 header dwords are:
 
@@ -69,15 +66,69 @@ distinct operations:
 The firmware-update wrapper sends a 16-byte input record containing unit index,
 byte count, and the pointer returned by the client's DMA-buffer allocator. It
 expects a four-byte result. The dedicated operation confirms that `HBUT` is
-not sent through the ordinary plug-in loader. It still does not reveal whether
-the device ultimately writes flash, configures the FPGA, or stages another
-persistent component, so hardware execution remains prohibited.
+not sent through the ordinary plug-in loader.
 
-The official macOS driver independently shows a runtime `LoadFirmware` path
-using block command base `0x80040000`, argument `0x00120000`, and a 150,000 ms
-timeout. Its block helper uses command-ring DMA references and response
-descriptors. The relationship between that runtime path and the updater's
-potentially persistent `HBUT` object is not yet proven.
+The symbolized official macOS driver resolves the dispatch boundary.
+`CMessenger::_loadBlock` maps operation `0x69` to the device's `LoadFirmware`
+virtual method. Operation `0x6a` maps to the distinct `LoadFPGAImage` method;
+authentication and demo blocks are operations `0x67` and `0x68`. The
+`CUAD2Device::LoadFirmware` implementation invokes `_sendBlock` with command
+base `0x00120000`, expected response class `0x80040000`, and a 150,000 ms
+timeout. Its helper uses command-ring DMA references and a four-dword response
+descriptor. This proves that the HBUT-selected operation reaches the firmware
+block helper, not the separate FPGA-image dispatcher. It does not prove that
+the operation is volatile.
+
+The exact updater executable also contains PCIe completion text requiring a
+computer restart after the firmware update. Its `CUAD2Info::LoadBinFile` path
+allocates a DMA buffer equal to the file size, copies the complete file,
+checks the magic from that copy, and passes the same buffer and full byte count
+to the firmware-update virtual method. It does not strip the 64-byte wrapper.
+These facts require treating HBUT as potentially persistent despite its use of
+the DSP command-ring helper.
+
+In that executable, `CUAD2Info::LoadBinFile` begins at image address
+`0x140162120`. The DMA allocation is called at `0x14016219d`, the complete copy
+at `0x1401621e5`, magic is read at `0x1401621ea`, and the firmware-update
+virtual call occurs at `0x14016228b`. The restart notice is stored at
+`0x140497a80`. These image-relative observations are tied to the executable
+hash above and make the full-file path reproducible without distributing it.
+
+Experiment 018 submitted a one-dword zero placeholder and the 64-byte OCTO
+HBUT header without its declared payload. Both command chains were consumed,
+but neither produced a response. No complete firmware image was submitted.
+See
+[`experiment-018-loader-response-probes.md`](experiment-018-loader-response-probes.md).
+
+Ordinary DSP programs use a separate `Bill` resource format. Its exact outer
+parser, conditional host-side tail transform, and runtime allocator are documented in
+[`bill-resource-analysis.md`](bill-resource-analysis.md). Those findings do not
+decode the HBUT payload.
+
+## Transformation and authentication matrix
+
+| Payload | Host transformation | Host authentication | DSP-side status |
+|---|---|---|---|
+| `Bill`, payload form 0 | Complete byte-for-byte copy | No cryptographic check in the outer parser | Opaque and untested on OCTO |
+| `Bill`, payload form nonzero | Replace declared trailing dwords with an ID-seeded deterministic stream | No cryptographic check in the outer parser | Opaque and untested on OCTO |
+| `HBUT` firmware-update object | Fixed 64-byte wrapper parsed; inner payload unresolved | Unknown | Exact operation may be persistent; one complete chain stopped before the first data descriptor completed |
+| Runtime loader block | Page-chained DMA framing recovered | Accepted-image validation unknown | Incomplete probes consumed without a reply |
+
+This matrix distinguishes lack of a host-side check from proof that no
+authentication exists. DSP firmware can still authenticate or decrypt the
+opaque bytes after receipt.
+
+## Comparative payload evidence
+
+Every examined `FBUT`, `GBUT`, and `HBUT` container obeys the same exact size
+relation, `(word[6] + 16) * 4 == file_size`. The OCTO HBUT payload has measured
+Shannon entropy of 7.999936 bits per byte and contains no recognizable
+plaintext executable magic. Same-size HBUT and GBUT variants match at about
+one byte in 256, which is consistent with independent high-entropy ciphertext
+or authenticated encodings. It is not enough to identify a cipher, key,
+compression scheme, signature, or relocation model. Some same-size FBUT
+variants retain large identical regions, so the three magic families cannot be
+assumed to share one inner representation.
 
 ## Offline tools
 
@@ -98,10 +149,12 @@ vendor material.
 - Payload transform and integrity algorithm.
 - Public-key or symmetric authentication, if any.
 - Segment and relocation records after decoding.
-- Runtime DSP framework container versus persistent FPGA update boundary.
+- Exact DSP-side meaning of the HBUT inner payload.
 - Per-plug-in code and data overlay format.
 - Entry point, ABI, and allocation rules for a harmless DSP0 program.
 
-The next safe step is offline recovery of the driver virtual method that
-consumes the `HBUT` buffer and of the runtime block loader. Programming this
-file into the card is outside the current safety boundary.
+Experiment 021 submitted the exact hash-identified HBUT through the recovered
+large-block framing. The device consumed the extended command header but did
+not complete the first data descriptor or write a response. Cleanup and reset
+fully recovered the card. Further hardware submission is paused until the
+persistent update state machine can be excluded.
