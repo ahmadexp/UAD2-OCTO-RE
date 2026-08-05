@@ -9,12 +9,12 @@ parser is not the same as a decoded executable.
 
 | Requested outcome | Current result | What is still required |
 |---|---|---|
-| Receive and decode a valid firmware response | Not achieved. Commands dequeue, but no card-written response has been observed. Two valid `Bill` success shapes and HBUT response class are known statically. | Enter the official runtime state and capture one lawful response. |
+| Receive and decode a valid firmware response | Not achieved. Commands dequeue, but no card-written response has been observed. Two valid `Bill` success shapes and HBUT response class are known statically. Operation `0x6f` was eliminated as a candidate because it is host-assembled and never uses a DSP ring. | Enter the official DSP runtime state and capture one lawful ring response. |
 | Reproduce the complete shared 4 MiB DMA transport | Resolved for this OCTO profile as inapplicable. Static capability logic and a read-only snapshot show that the optional audio-extension object and BAR `0x8000`/`0xa000` tables are absent. | A different supported device is required to execute that optional path. It should not be fabricated on this OCTO. |
 | Identify exact SHARC DSP models and memory maps | ADSP-21469 family and data-sheet map strongly identified. Exact package marking on this physical board is not optically confirmed. | Sharp perpendicular macro photograph of one DSP package marking. |
 | Reverse engineer DSP boot and reset control | Host reset masks, ready polling, ring startup, all-eight DMA enable, and isolated per-DSP reset are recovered and executed. DSP ROM boot flow and first framework instruction are not decoded. | DSP-side boot consumer analysis or a trace from reset into framework startup. |
 | Understand firmware and plug-in container formats | Fixed FBUT/GBUT/HBUT wrapper, all 47 artifacts, `Bill` outer header, conditional transform, envelope, allocator, copy limit, and completion parser are recovered. | Decode the opaque HBUT inner payload and one form-zero `Bill` inner core. |
-| Determine signing, authentication, relocation, and loading rules | Host-side `Bill` parser performs no cryptographic check; four direct SHA-256 layouts fail across all 87 instances. Loader dispatch and status rules are recovered. | Locate DSP-side verification, segment, entry-point, relocation, and reserved-memory consumers. No conclusion about signing can yet be made. |
+| Determine signing, authentication, relocation, and loading rules | Host-side `Bill` parser performs no cryptographic check. Standard digest, checksum, compression, repetition, and cross-generation tests over 69 unique cores reject several simple layouts. Loader dispatch and status rules are recovered. | Locate DSP-side verification, segment, entry-point, relocation, and reserved-memory consumers. No conclusion about signing can yet be made. |
 | Load a harmless DSP0 program | Not attempted, by design. No target-specific executable or entry ABI is proven. | Valid framework response, decoded OCTO-compatible core, bounded output buffer, timeout, and recovery oracle. |
 | Implement host-to-DSP buffers and completion handling | Ring DMA and resource completion ABI are reconstructed. Public compute calls remain fail-closed. | One real program load and one bounded buffer exchange before enabling UAPI job calls. |
 | Build reusable Linux driver and userspace API | Bounded kernel transport, versioned userspace API, identity checks, coherent ring allocation, start, status, reset, and stop exist. Program/buffer/job/wait operations return `-EOPNOTSUPP`. | Enable capabilities only after their hardware contracts pass. |
@@ -22,7 +22,12 @@ parser is not the same as a decoded executable.
 
 ## Material progress in the latest pass
 
-- Assigned six fields in the official 168-byte system-information record.
+- Closed the complete operation-`0x6f` path across client, system, and PCIe
+  drivers. The 168-byte record is assembled from cached host state and BAR
+  MMIO, not returned by a DSP.
+- Tied `-0x5c` exactly to host object field `+0x0c40`, including constructor,
+  start, initialization, and stop writes, and mapped the labeled record fields
+  to their exact BAR sources.
 - Proved that firmware operation `0x69` selects one dedicated target method and
   does not automatically bracket itself with operations `0x67` and `0x68` in
   the common dispatcher.
@@ -31,7 +36,12 @@ parser is not the same as a decoded executable.
   final low-code mappings.
 - Aggregated all 87 official `Bill` instances without emitting payload bytes.
   The opaque prefixes are 32, 48, or 96 bytes, not one fixed length.
-- Rejected four simple direct SHA-256 layouts across every instance.
+- Rejected standard clear digests, CRC-32, Adler-32, common compression
+  wrappers, aligned repeated blocks, and clear cross-generation similarity in
+  addition to the four direct SHA-256 layouts.
+- Matched five public Apollo captures to five official cabinet resources. Every
+  byte after the outer resource ID is identical; only the resource ID high byte
+  differs. This supplies useful semantic correlations but no OCTO entry ABI.
 - Reconfirmed the live endpoint at `0000:03:00.0`, subsystem `1a00:0005`, in
   isolated IOMMU group 16 with no driver bound. The check performed no MMIO,
   DMA, reset, or command operation.
@@ -45,6 +55,6 @@ timeout while adding card or host risk. The project therefore requires a
 discriminating static or official-trace result before another write.
 
 This is an evidence gate, not an assertion that the remaining work is
-impossible. The next highest-value artifact is a lawful official operation
-`0x6f` or update trace, followed by the first DSP-side consumer of a form-zero
-`Bill` core.
+impossible. Operation `0x6f` is no longer on the critical path. The next
+highest-value artifact is a lawful official update trace or the first DSP-side
+consumer of an HBUT or form-zero `Bill` core.

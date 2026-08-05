@@ -184,21 +184,33 @@ compares several cached firmware and framework version fields.
 
 The matching `UAD2DriverClient` implementation issues operation `0x6f`, uses a
 176-byte request record, receives a four-byte status, and copies at most 168
-bytes to the caller. This proves that the official stack has an explicit
-system-state query and a transient not-ready result. It does not reveal the
-device-side transition that makes runtime queries responsive.
+bytes to the caller. The matching `UAD2System.sys` wrapper selects the device
+and calls its vtable slot `0x60`. The exact `UAD2Pcie.sys` implementation then
+assembles the record from cached object fields and BAR MMIO. No DSP command
+ring is involved.
+
+The not-ready result is an exact host lifecycle gate: PCIe object field
+`+0x0c40` clear returns `-0x5c`; constructor, initialization, and start paths
+set it, while stop clears it. This operation therefore does not reveal the
+device-side transition that makes runtime queries responsive, and is not a
+candidate for the missing valid DSP response.
 
 These two binaries can be checked without redistributing them:
 
 ```bash
 python3 tools/inspect_updater_state.py \
   /path/to/UADPerfMon /path/to/UAD2DriverClient
+
+python3 tools/inspect_system_info_path.py \
+  /path/to/UAD2System.sys /path/to/UAD2Pcie.sys
 ```
 
 Six report-correlated fields are now assigned: driver version at `+0x20`, FPGA
 version at `+0x24`, DSP framework version at `+0x28`, DSP bootloader version at
 `+0x2c`, serial-number storage or reference at `+0x58`, and auxiliary FPGA
-version at `+0xa0`. Several family-dependent bytes remain unassigned. See
+version at `+0xa0`. Their exact sources are now BAR `0x2218`, `0x8`, `0x4`,
+`0x20..0x2c`, and `0x2238`, plus the packed driver-version constant. Several
+family-dependent bytes remain unassigned. See
 [`system-information-record.md`](system-information-record.md).
 
 ## Ordinary resource completion path

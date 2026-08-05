@@ -187,6 +187,40 @@ digest layouts. They do not distinguish a signature from encrypted metadata,
 a keyed authenticator, compressed state, or ordinary high-entropy program
 data.
 
+## Corpus-wide inner-core tests
+
+The second analysis pass treats the bytes after the preserved prefix as the
+unknown inner core and reports aggregate measurements only. It does not emit
+vendor bytes. Across the 69 unique resources:
+
+- inner-core entropy ranges from 6.160432 to 7.997328 bits per byte, with a
+  mean of 7.608898;
+- maximum-level zlib output ranges from 1.000455 to 1.130952 times the input,
+  with a mean of 1.022522, so none of the cores becomes smaller;
+- none starts with ELF, gzip, xz, bzip2, ZIP, zlib, LZ4-frame, or Zstandard
+  magic, and no standard decompressor candidate succeeds;
+- no resource repeats an aligned 16-byte block internally;
+- no aligned 16-byte core block is shared by two different unique resources;
+- CRC-32 and Adler-32 of either the core or complete body match no dword in
+  the corresponding prefix;
+- resource ID, attributes, core size, and file size likewise match no prefix
+  dword;
+- MD5, SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, BLAKE2s, and BLAKE2b of the
+  core or `outer_header || core` occur nowhere in any eligible prefix.
+
+The cabinet also provides exactly 39 adjacent generation-1/generation-2
+pairs. All 39 pairs use the same prefix size, 21 have equal total size, and
+eight retain the same resource ID. Their overlapping cores share only 0 to
+1.5152 percent of bytes, with a mean of 0.4227 percent, close to chance for
+unrelated byte streams. XOR entropy averages 7.584978 bits per byte.
+
+Together, these results strongly reject an uncompressed clear SHARC image,
+ECB-like repeated-block encoding, and several simple embedded checksum or
+digest layouts. They are consistent with encryption, high-entropy compression,
+or another keyed encoding, but do not identify which. In particular, they do
+not reveal a key, authentication rule, relocation table, segment table, or
+entry point. Those rules remain on the DSP-side consumer path.
+
 ## Proven and unresolved
 
 Confirmed statically:

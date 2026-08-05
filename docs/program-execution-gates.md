@@ -105,6 +105,13 @@ The same source contains captured Apollo x4 `Bill` programs and conflicting
 program-command commentary and constants. Those bytes and constants are not
 target-compatible proof for an OCTO. They must not be copied into a DSP0 test.
 
+The current public header has now been audited at a fixed commit. Its five
+cores exactly match five official UAD 11.0.1 cabinet cores; only the high byte
+of the outer resource ID differs. This establishes common resource content and
+supports the public semantic labels, but the accompanying module entry points,
+code offsets, and SRAM addresses still come from Apollo x4 runtime captures.
+They cannot define OCTO reservations or an OCTO heartbeat ABI.
+
 The stepbrobd/uad2 project contributes useful macOS transport observations but
 does not establish general-purpose OCTO program execution. This repository
 therefore keeps all related-project conclusions labeled as hypotheses until an

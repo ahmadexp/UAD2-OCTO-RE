@@ -31,10 +31,12 @@ descriptor, with no response or persistent-state evidence. The updater requires
 a restart after PCIe firmware updates, so further submission is paused. The
 ordinary `Bill` resource envelope, host transform, all four allocator pools,
 87 official resource instances, and both completion forms are recovered, but
-their DSP-side payloads remain opaque. Four direct SHA-256 layouts match none
-of the resources. Six fields in the official 168-byte system-information
-record are assigned. The next milestone is a valid runtime response followed
-by a target-specific harmless program.
+their DSP-side payloads remain opaque. Digest, checksum, compression, and
+block-correlation tests reject several simple inner formats. The official
+168-byte system-information record is traced across all three host layers,
+with its labeled fields tied to exact BAR sources. That path never uses the
+DSP command ring. The next milestone is a valid runtime response followed by a
+target-specific harmless program.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -206,6 +208,13 @@ python3 tools/inspect_updater_state.py \
   /path/to/UADPerfMon /path/to/UAD2DriverClient
 ```
 
+The complete host-side system-information path can be verified separately:
+
+```bash
+python3 tools/inspect_system_info_path.py \
+  /path/to/UAD2System.sys /path/to/UAD2Pcie.sys
+```
+
 The ordinary DSP resource loader and completion parser can be verified with:
 
 ```bash
@@ -217,6 +226,15 @@ without emitting resource bytes:
 
 ```bash
 python3 tools/analyze_bill_resources.py --recursive /path/to/extracted-cabinet
+```
+
+A hash-locked public capture can be compared with the official cabinet without
+printing either corpus' bytes:
+
+```bash
+python3 tools/audit_public_bill_corpus.py \
+  /path/to/open-apollo/driver/ua_dsp_programs.h \
+  /path/to/extracted-cabinet
 ```
 
 ## Prior work

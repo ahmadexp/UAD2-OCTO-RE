@@ -19,24 +19,28 @@ Command-ring consumption proves that the FPGA DMA front end recognizes the
 ring and descriptor layout. It does not prove that a DSP runtime is executing
 the submitted command or that a matching response service exists.
 
-## Official not-ready behavior
+## Host system-information behavior
 
 The updater reads a 168-byte GetSystemInfo record. Status `-0x5c` is handled
 as a transient condition, converted to a retry result, and the version
 comparison permits five reads at roughly 200 ms intervals. The client reaches
 this operation through operation index `0x6f`.
 
-That behavior supports a state machine with an explicit not-ready phase. It
-does not prove that `-0x5c` is the card's current result under Linux because
-the Linux transport has not reproduced the Windows control interface above
-the ring layer.
+The exact kernel implementation is now recovered. `UAD2System.sys` invokes a
+PCIe device method that builds the record locally from cached object fields and
+BAR MMIO. It returns `-0x5c` only while object field `+0x0c40` is clear. Driver
+initialization and start set the field; stop clears it. Neither the base record
+assembler nor the complete PCIe method submits a DSP ring command.
+
+Consequently, this status supports a Windows driver lifecycle state, not a DSP
+runtime state. Reproducing operation `0x6f` under Linux would duplicate BAR
+reads already present in the passive tooling and would not produce the valid
+DSP response required by the project.
 
 The record is no longer wholly opaque. The updater's own report labels assign
 driver, FPGA, DSP framework, DSP bootloader, serial, and auxiliary FPGA fields.
-The recovered layout is documented in
-[`system-information-record.md`](system-information-record.md). A captured
-operation-`0x6f` response is still required to connect those host fields to the
-card's current state.
+The recovered layout and exact field sources are documented in
+[`system-information-record.md`](system-information-record.md).
 
 ## Why the full HBUT experiment did not resolve it
 
@@ -65,16 +69,14 @@ discriminating prediction.
 
 ## Next evidence, in order
 
-1. Capture operation `0x6f` through the lawful official stack and correlate
-   the recovered 168-byte fields with the OCTO's live state.
-2. Capture a lawful official update on disposable, recoverable hardware at the
+1. Capture a lawful official update on disposable, recoverable hardware at the
    driver boundary, including operation order, return values, resets, and
    timing. Do not capture or publish secrets.
-3. Identify the first device-side consumer of the HBUT prefix or compatibility
+2. Identify the first device-side consumer of the HBUT prefix or compatibility
    ID through static analysis.
-4. Identify the DSP-side consumer of a form-zero `Bill` resource and decode
+3. Identify the DSP-side consumer of a form-zero `Bill` resource and decode
    one target-compatible inner core.
-5. Only after volatility and recovery are demonstrated, define a new bounded
+4. Only after volatility and recovery are demonstrated, define a new bounded
    hardware experiment with one changed variable and a unique expected result.
 
 Repeating queries, changing descriptor size without evidence, or sending the

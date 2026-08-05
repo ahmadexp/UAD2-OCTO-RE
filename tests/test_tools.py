@@ -296,6 +296,29 @@ class UpdaterStateInspectorTests(unittest.TestCase):
         self.assertTrue(all(offset + size <= 168 for offset, size in fields))
 
 
+class SystemInfoPathInspectorTests(unittest.TestCase):
+    def test_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_system_info_path")
+        for signatures in (module.SYSTEM_SIGNATURES, module.PCIE_SIGNATURES):
+            addresses = [address for address, _bytes, _meaning in signatures]
+            self.assertEqual(len(addresses), len(set(addresses)))
+            self.assertTrue(all(expected for _address, expected, _meaning in signatures))
+        self.assertEqual(len(module.SYSTEM_SHA256), 64)
+        self.assertEqual(len(module.PCIE_SHA256), 64)
+
+    def test_unknown_binary_is_refused(self):
+        module = load_tool("inspect_system_info_path")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not a driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.verify(
+                    pathlib.Path(candidate.name),
+                    module.SYSTEM_SHA256,
+                    module.SYSTEM_SIGNATURES,
+                )
+
+
 class BillLoaderInspectorTests(unittest.TestCase):
     def test_signatures_and_completion_mapping_are_explicit(self):
         module = load_tool("inspect_bill_loader")
@@ -418,6 +441,36 @@ class BillResourceAnalyzerTests(unittest.TestCase):
         )
         for hypothesis in result["direct_sha256_hypotheses"].values():
             self.assertEqual(hypothesis, {"eligible": 2, "matches": 0})
+        self.assertEqual(result["schema"], 2)
+        self.assertEqual(result["entropy_bits_per_byte"]["inner_core"]["count"], 1)
+        self.assertEqual(
+            result["standard_digest_subsequence_hypotheses"]["sha256_inner_core"],
+            {"eligible": 1, "matches_anywhere_in_prefix": 0},
+        )
+        self.assertEqual(
+            result["aligned_16_byte_block_tests"]["distinct_blocks_shared_by_multiple_unique_resources"],
+            0,
+        )
+
+
+class PublicBillCorpusAuditTests(unittest.TestCase):
+    def test_comparison_reports_only_resource_id_high_byte_difference(self):
+        module = load_tool("audit_public_bill_corpus")
+        body = bytes(range(32)) + bytes(12)
+        public = struct.pack(
+            "<4s4I", b"Bill", 0x020000C2, 0x02000000, len(body), 3
+        ) + body
+        official = bytearray(public)
+        official[7] = 0
+        key = module._key(bytes(official))
+        result = module.compare_arrays({"fixture": public}, {key: bytes(official)})[0]
+        self.assertEqual(result["differing_byte_offsets"], [7])
+        self.assertTrue(result["all_bytes_after_resource_id_equal"])
+
+    def test_public_header_hash_is_locked(self):
+        module = load_tool("audit_public_bill_corpus")
+        self.assertEqual(len(module.PUBLIC_HEADER_SHA256), 64)
+        self.assertEqual(len(module.PUBLIC_COMMIT), 40)
 
 
 class Experiment011SourceTests(unittest.TestCase):
