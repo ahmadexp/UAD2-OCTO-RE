@@ -64,10 +64,22 @@ operations until these evidence gates are met.
 
 Static work also proves that firmware operation `0x69` selects its own target
 method and does not automatically invoke operations `0x67` and `0x68` in the
-common dispatcher. The complete operation-`0x6f` path is recovered: it builds
+common dispatcher. Both recovered updater callers also dispatch the selected
+`FBUT`, `GBUT`, or `HBUT` directly without an automatic pre-operation or
+post-operation. The complete operation-`0x6f` path is recovered: it builds
 the system-information record from host state and BAR MMIO and never uses the
 DSP command ring. A live `0x6f` call is therefore not a remaining response
 milestone.
+
+Resource-manager properties 6, 7, and 8 are likewise host-side BAR or cached
+state reads. Their recovery explains the eleven-word pool capture but does not
+provide a runtime command or response service.
+
+A distinct kernel-lifecycle transition is now known. Ordinary hard reset
+pulses BAR `+0x221c`; after the firmware-load flag is set, hard reset writes
+`0x0be0deaf` to DSP0 `+0x1a8` instead. This cross-platform result narrows the
+boot state machine, but its potentially persistent device-side semantics must
+be traced after a successful official load before any reproduction.
 
 Detailed response-state evidence is in
 [`runtime-response-state.md`](runtime-response-state.md). The first-program,

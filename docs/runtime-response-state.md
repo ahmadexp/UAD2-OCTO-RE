@@ -53,25 +53,43 @@ object or a missing response descriptor.
 Plausible remaining categories are deliberately unordered:
 
 - a required device or DSP boot state before command `0x00120000`;
-- an updater-side operation not yet connected to the ring transition;
 - a card-generated DMA fault not visible in the captured host registers;
 - an accepted physical-address constraint beyond the recovered descriptor
   rules;
 - persistent-update arbitration or reset sequencing;
+- a firmware-aware hard-reset transition after the load flag is set;
 - an inner-container validation path that stalls before reporting failure.
 
 The adjacent commands `0x000d0000` and `0x000e0000` are not evidence that they
 must bracket the initial update. The exact `UAD2System.sys` common dispatcher
 selects one distinct target method for each of operations `0x67`, `0x68`, and
 `0x69`; operation `0x69` does not automatically invoke the other two there.
-Submitting the neighboring commands speculatively would add risk without a
-discriminating prediction.
+The exact updater application also calls `LoadBinFile` directly from both its
+single-update wrapper and its multi-device loop. `LoadBinFile` invokes only the
+firmware-update vtable slot for `FBUT`, `GBUT`, and `HBUT`. The missing action
+is therefore not a hidden automatic pre-operation or post-operation in either
+recovered host caller. Submitting the neighboring commands speculatively would
+add risk without a discriminating prediction.
+
+The driver lifecycle does contain a different post-load branch. `LoadFirmware`
+sets a host flag, and a later hard reset writes `0x0be0deaf` to DSP0 `+0x1a8`
+instead of performing the ordinary BAR `+0x221c` reset pulse. This path is
+confirmed independently in the exact Windows and symbolized macOS drivers. It
+does not explain why Experiment 021 stopped at its first payload descriptor,
+because no successful load response occurred. Issuing the magic after a
+timeout would be non-discriminating and potentially persistent.
+
+Framework properties 6, 7, and 8 are also eliminated as response candidates.
+The symbolized PCIe driver implements them with local BAR and cached-object
+reads. Property 6 is exactly the eleven-word pool map already captured by
+Experiment 020. See [`framework-property-map.md`](framework-property-map.md).
 
 ## Next evidence, in order
 
-1. Capture a lawful official update on disposable, recoverable hardware at the
-   driver boundary, including operation order, return values, resets, and
-   timing. Do not capture or publish secrets.
+1. Capture a lawful official update on disposable, recoverable hardware below
+   the recovered host call boundary, including descriptor progress, device
+   resets, the `+0x1a8` or `+0x221c` branch, return values, and timing. Do not
+   capture or publish secrets.
 2. Identify the first device-side consumer of the HBUT prefix or compatibility
    ID through static analysis.
 3. Identify the DSP-side consumer of a form-zero `Bill` resource and decode

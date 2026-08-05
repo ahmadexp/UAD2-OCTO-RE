@@ -27,6 +27,12 @@ The registers are relative to each DSP register window:
 - reservations: type 2 at `+0x194`, type 1 at `+0x198`, and type 3 at
   `+0x19c`.
 
+Subsequent static analysis ties this capture to the official host consumer.
+`CDSPResourceManager::Initialize` obtains property 6 as a 44-byte record, and
+`CPcieDSP::GetProperty` fills it from exactly these eleven offsets. The call is
+a local BAR read, not a DSP command-ring transaction. The complete dispatch is
+in [`framework-property-map.md`](framework-property-map.md).
+
 The per-DSP window is `(dsp > 3 ? 0x2000 : 0) + dsp * 0x800`. The snapshot was
 taken through a read-only VFIO BAR mapping after exact PCI identity and IOMMU
 group checks. The machine returned to an unbound, bus-master-disabled state.

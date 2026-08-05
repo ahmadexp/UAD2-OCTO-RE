@@ -94,6 +94,22 @@ virtual call occurs at `0x14016228b`. The restart notice is stored at
 `0x140497a80`. These image-relative observations are tied to the executable
 hash above and make the full-file path reproducible without distributing it.
 
+Two independent updater callers reach this path directly. The firmware-updater
+virtual method passes the selected file, size, and unit straight to
+`LoadBinFile`. The broader update workflow loops over units and makes the same
+direct call. Neither caller invokes a separate block operation before or after
+the `HBUT` call. Together with the one-method `UAD2System.sys` dispatch, this
+rules out an automatic host-side `0x67`, `0x69`, `0x68` sequence. It does not
+rule out a state machine inside the card or the DSP consumer.
+
+The kernel device lifecycle contains a separate post-load distinction.
+`LoadFirmware` sets a host flag before entering the block helper. A later hard
+reset writes `0x0be0deaf` to DSP0 `+0x1a8` when that flag is set; without the
+flag, it performs the ordinary BAR `+0x221c` reset pulse. Both Windows and
+macOS implementations agree. This is not an adjacent loader command and does
+not revive the speculative `0x67`, `0x69`, `0x68` sequence, but it may be a
+firmware activation or commit boundary. Its device-side meaning is unresolved.
+
 Experiment 018 submitted a one-dword zero placeholder and the 64-byte OCTO
 HBUT header without its declared payload. Both command chains were consumed,
 but neither produced a response. No complete firmware image was submitted.

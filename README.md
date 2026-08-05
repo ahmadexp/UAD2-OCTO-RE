@@ -46,6 +46,16 @@ of four common direct SHA-256 constructions explains their opaque 32-byte
 tails. These findings narrow the blocker to device state and the inner payload,
 not the known large-block framing.
 
+The symbolized macOS driver is also hash-locked at a public commit. Its
+`_waitFor469ToStart` symbol and boot gate strengthen the ADSP-21469-family
+identification. Its complete DSP-property switch proves that resource-manager
+properties are local BAR reads, not hidden command-ring queries. Exact updater
+callers also show direct `FBUT`, `GBUT`, and `HBUT` dispatch without an
+automatic three-operation wrapper. A separate kernel-lifecycle branch is now
+known: ordinary hard reset pulses BAR `+0x221c`, while the post-`LoadFirmware`
+path writes `0x0be0deaf` to DSP0 `+0x1a8`. That potentially persistent write
+is documented but intentionally unexecuted.
+
 | Area | Status | Evidence |
 |---|---|---|
 | PCI identity and 64 KiB BAR | Confirmed | [`docs/hardware-profile.md`](docs/hardware-profile.md) |
@@ -64,6 +74,7 @@ not the known large-block framing.
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
+| Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
 | Official system-information record | Six fields assigned; live OCTO response missing | [`docs/system-information-record.md`](docs/system-information-record.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
@@ -95,6 +106,7 @@ these tools on an older profile.
 - [`docs/protocol-notes.md`](docs/protocol-notes.md): ring, DMA, and interrupt model
 - [`docs/experiment-methodology.md`](docs/experiment-methodology.md): safety and evidence rules
 - [`docs/official-driver-static-analysis.md`](docs/official-driver-static-analysis.md): hash-locked driver findings
+- [`docs/framework-property-map.md`](docs/framework-property-map.md): boot symbols and host-side DSP property paths
 - [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md): official device-start state machine
 - [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md): SHARC identification and address map
 - [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
@@ -219,6 +231,12 @@ The ordinary DSP resource loader and completion parser can be verified with:
 
 ```bash
 python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
+```
+
+The public symbolized macOS driver can be checked independently:
+
+```bash
+python3 tools/inspect_framework_driver.py /path/to/uad2.kext
 ```
 
 Embedded resource structure and narrow hash hypotheses can be summarized

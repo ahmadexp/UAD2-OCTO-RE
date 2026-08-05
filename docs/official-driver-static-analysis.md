@@ -16,6 +16,18 @@ offset, ring-size, startup, interrupt, and query constants below. The full
 ordered startup reconstruction is in
 [`device-startup-sequence.md`](device-startup-sequence.md).
 
+A separate verifier covers the symbolized x86-64 macOS implementation at
+public commit `910a8f413d33bc3489d0da8fc613870153ccb4f2`:
+
+```bash
+python3 tools/inspect_framework_driver.py /path/to/uad2.kext
+```
+
+It verifies the `CPcieDSP::_waitFor469ToStart`, `GetProperty`, `PropertySize`,
+`CUAD2Device::LoadFirmware`, and `CDSPResourceManager::Initialize` symbols and
+their relevant instruction bytes. See
+[`framework-property-map.md`](framework-property-map.md).
+
 ## Ring class
 
 The ring initializer at image address `0x14000c47c` reads BAR ring offset
@@ -71,6 +83,15 @@ disabled. Experiment 017 executed that sequence independently for all eight
 engines, re-enabled only the tested engine, and recovered every case. See
 [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md).
 
+There is also a device-level firmware-aware hard reset. In the exact Windows
+driver, `LoadFirmware` sets object field `+0x0c38` before calling `_sendBlock`.
+When that field is clear, hard reset samples per-DSP `+0x1a4` and pulses BAR
+`+0x221c` one then zero, with a `0x2710`-tick hold in the Windows build. When
+the field is set, it instead writes `0x0be0deaf` to DSP0 `+0x1a8`. The
+symbolized macOS build independently contains the same flag, branch, register,
+magic value, and ordinary pulse. Device-side semantics remain unknown, and the
+firmware-aware write has not been executed by this project.
+
 For eight-DSP devices the interrupt manager compresses five logical vectors
 per DSP into four physical bits. Logical offsets zero through three map to the
 corresponding four-bit group and logical offset four is unmapped. The callback
@@ -109,6 +130,16 @@ caller proves that the first and third wrappers surround an initial cold-boot
 HBUT update. Public code that describes these as an unconditional three-phase
 sequence therefore exceeds the available evidence.
 
+The exact updater application removes the remaining caller-level ambiguity.
+Its single-update virtual method calls `CUAD2Info::LoadBinFile` directly. Its
+separate multi-device workflow loops over units and calls the same method
+directly. `LoadBinFile` copies the full file, classifies `FBUT`, `GBUT`, and
+`HBUT` in one adjacent-magic branch, invokes only firmware-update vtable slot
+`0x40`, then releases the DMA buffer through slot `0x80`. No automatic
+pre-operation or post-operation appears in either recovered caller. This does
+not prove what the device does internally, but it rules out a hidden
+application wrapper as the missing three-stage sequence.
+
 The exact UAD 11.0.1 `UAD2System.sys` dispatch layer sharpens this result. Four
 public wrappers select operations `0x67`, `0x68`, `0x69`, and `0x6a` before
 entering one common dispatcher. At the target object, operations `0x67`,
@@ -129,6 +160,12 @@ payload pages. It queues a four-dword response descriptor first and accepts a
 reply whose first dword has class `0x8004xxxx`. This proves that a command-ring
 block loader exists, but does not establish whether its caller ultimately
 changes persistent state or identify its accepted inner image format.
+
+The same symbolized implementation shows that framework resource-manager
+properties 6, 7, and 8 are host-side reads. Property 6 is the exact eleven-word
+BAR resource map, property 7 reads per-DSP `+0x1a0`, and property 8 returns the
+cached DSP index. None uses the command ring. Those calls are not candidates
+for a first valid DSP response.
 
 For payloads of at least `0x3fffc` bytes, `_sendBlock` uses its recovered
 extended-length form instead: the two header dwords are `command_base |
@@ -164,7 +201,7 @@ Run the separate exact-driver verifier with:
 python3 tools/inspect_pcie_loader.py /path/to/UAD2Pcie.sys
 ```
 
-All 19 signatures are hash-locked. This removes large-chain framing as the
+All 26 signatures are hash-locked. This removes large-chain framing as the
 likely explanation for Experiment 021 stopping at its first payload
 descriptor. It does not explain the missing state transition or make another
 HBUT submission safe.

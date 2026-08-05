@@ -121,6 +121,40 @@ class OfficialDriverInspectorTests(unittest.TestCase):
                 module.inspect(pathlib.Path(candidate.name))
 
 
+class FrameworkDriverInspectorTests(unittest.TestCase):
+    def test_signatures_symbols_and_tables_are_explicit(self):
+        module = load_tool("inspect_framework_driver")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 21)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertEqual(len(module.KNOWN_SHA256), 64)
+        self.assertEqual(len(module.PUBLIC_COMMIT), 40)
+        self.assertIn("__ZN11CPcieDevice13HardResetDSPsEv", module.SYMBOLS)
+        self.assertEqual(len(module.SWITCH_TABLE), 13 * 4)
+        self.assertEqual(module.PROPERTY_SIZES[6], 44)
+        self.assertEqual(
+            next(item for item in module.PROPERTY_PATHS if item["id"] == 6)["register_offsets"],
+            [
+                "0x010", "0x018", "0x014", "0x01c", "0x184", "0x18c",
+                "0x188", "0x190", "0x198", "0x194", "0x19c",
+            ],
+        )
+
+    def test_unknown_framework_driver_is_refused(self):
+        module = load_tool("inspect_framework_driver")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not the framework driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash is not the analyzed"):
+                module.inspect(pathlib.Path(candidate.name))
+
+    def test_macho_parser_rejects_invalid_input(self):
+        module = load_tool("inspect_framework_driver")
+        with self.assertRaisesRegex(ValueError, "truncated Mach-O"):
+            module.MachOImage(b"short")
+
+
 class StartupProfileTests(unittest.TestCase):
     def test_observed_octo_omits_audio_extension_and_compresses_vectors(self):
         module = load_tool("decode_startup_profile")
@@ -251,6 +285,9 @@ class PcieLoaderInspectorTests(unittest.TestCase):
         self.assertEqual(len(addresses), len(set(addresses)))
         self.assertEqual(len(module.KNOWN_SHA256), 64)
         self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertTrue(
+            any("0x0be0deaf" in meaning for _address, _expected, meaning in module.SIGNATURES)
+        )
 
     def test_unknown_loader_driver_is_refused(self):
         module = load_tool("inspect_pcie_loader")
@@ -294,6 +331,21 @@ class UpdaterStateInspectorTests(unittest.TestCase):
             (0xA0, 4),
         ]
         self.assertTrue(all(offset + size <= 168 for offset, size in fields))
+
+    def test_firmware_dispatch_has_no_invented_bracketing(self):
+        module = load_tool("inspect_updater_state")
+        self.assertTrue(
+            any(
+                "FBUT, GBUT, and HBUT" in meaning
+                for _address, _expected, meaning in module.PERFMON_SIGNATURES
+            )
+        )
+        self.assertTrue(
+            any(
+                "calls LoadBinFile directly" in meaning
+                for _address, _expected, meaning in module.PERFMON_SIGNATURES
+            )
+        )
 
 
 class SystemInfoPathInspectorTests(unittest.TestCase):

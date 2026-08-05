@@ -13,6 +13,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`experiment-methodology.md`](experiment-methodology.md): experiment gates and recovery rules
 - [`register-hypotheses.md`](register-hypotheses.md): register map with confidence labels
 - [`official-driver-static-analysis.md`](official-driver-static-analysis.md): reproducible static findings
+- [`framework-property-map.md`](framework-property-map.md): hash-locked boot and host-side DSP property dispatch
 - [`device-startup-sequence.md`](device-startup-sequence.md): ordered official startup state machine
 - [`dsp-model-and-memory-map.md`](dsp-model-and-memory-map.md): ADSP-21469-family evidence and data-sheet map
 - [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md): boot polling and all-eight reset isolation
