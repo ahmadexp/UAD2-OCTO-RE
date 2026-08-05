@@ -1,0 +1,19 @@
+{
+  "date": "2026-08-05",
+  "experiment": "004-extended-ring-snapshot",
+  "target": "0000:03:00.0",
+  "source_sha256": "656470d1a29634e733036e1d36be5cff28c687867651cda49d7ab8ed09fff730",
+  "remote_binary_sha256": "92cb93c1252ee5c64c82e50cdd220505556effa81ca7ff08efdc2030322c9225",
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "documented_ring_words_read": 176,
+  "zero_documented_ring_words": 176,
+  "extended_ring_words_read": 80,
+  "zero_extended_ring_words": 80,
+  "total_ring_words_read": 256,
+  "zero_total_ring_words": 256,
+  "dma_control": "0x0001fe00",
+  "all_dsps_ready_and_stable": true,
+  "follow_up_reset_recovered": true,
+  "success": true
+}

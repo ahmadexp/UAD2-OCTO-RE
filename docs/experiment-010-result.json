@@ -1,0 +1,31 @@
+{
+  "date": "2026-08-05",
+  "experiment": "010-official-query-026-with-interrupt-gates",
+  "target": "0000:03:00.0",
+  "source_sha256": "231b1420e11984185659022bc36aa0d27b7b7c6edfb77a5c229a6d998fe7b577",
+  "remote_binary_sha256": "9f3ec806a5c7cd96fd3a14208e9523b07189d31c7c12e9b134fac49612788230",
+  "command": "0x00260001",
+  "expected_response_header": "0x800c0005",
+  "mapped_pages": 7,
+  "command_hardware_read_index": 1,
+  "response_hardware_read_index": 0,
+  "interrupt_enable_readback": "0x0000001f",
+  "polls_ms": 2000,
+  "response_words": [
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5"
+  ],
+  "reply_header_matches": false,
+  "command_memory_unchanged": true,
+  "response_tail_unchanged": true,
+  "all_dsps_ready": true,
+  "dma_restored_to_cold_reset": true,
+  "descriptors_restored_to_zero": true,
+  "interrupt_gates_restored_to_zero": true,
+  "vfio_device_reset_called": true,
+  "reset_recovered": true,
+  "success": false
+}

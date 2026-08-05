@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-05",
+  "experiment": "003-reset-recovery",
+  "target": "0000:03:00.0",
+  "source_sha256": "e55008505e68eb694f961a021c3f74141165b8c197ba92c67db912a17242fc3d",
+  "remote_binary_sha256": "018db6dc7974719ce48fc9221dd5645c0c4491d97966d6563e54f9e18c5a6672",
+  "vfio_device_reset_calls": 1,
+  "dma_mappings": 0,
+  "mmio_writes": 0,
+  "before_cold_baseline": true,
+  "recovered": true,
+  "recovery_attempts": 1,
+  "recovery_elapsed_ms": 0,
+  "after": {
+    "fpga_revision": "0xa012dc0d",
+    "capabilities": "0x00300811",
+    "dma_control": "0x0001fe00",
+    "zero_ring_words": 176,
+    "dsp_status": [
+      "0x00000a03",
+      "0x00000003",
+      "0x00000003",
+      "0x00000003",
+      "0x00000003",
+      "0x00000003",
+      "0x00000003",
+      "0x00000003"
+    ]
+  },
+  "independent_verification": {
+    "dma_control": "0x0001fe00",
+    "ring_words_read": 176,
+    "zero_ring_words": 176,
+    "all_dsps_ready_and_stable": true,
+    "driver_after_cleanup": null,
+    "pci_command_after_cleanup": "0x0002",
+    "bus_mastering_after_cleanup": false
+  },
+  "success": true
+}

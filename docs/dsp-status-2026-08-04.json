@@ -1,0 +1,109 @@
+{
+  "capture_date": "2026-08-04",
+  "profile": "dsp-status",
+  "transport": "uio_pci_generic",
+  "sample_count": 2,
+  "interval_ms": 250,
+  "changes_between_samples": [],
+  "capabilities": {
+    "fpga_revision": "0xa012dc0d",
+    "extended_capabilities": "0x00300811",
+    "dsp_count": 8
+  },
+  "dsps": [
+    {
+      "index": 0,
+      "ring_bank": "0x2000",
+      "cmd_position_offset": "0x2028",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x2068",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x01a4",
+      "boot_status": "0x00000a03",
+      "ready_bit": true
+    },
+    {
+      "index": 1,
+      "ring_bank": "0x2080",
+      "cmd_position_offset": "0x20a8",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x20e8",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x09a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 2,
+      "ring_bank": "0x2100",
+      "cmd_position_offset": "0x2128",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x2168",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x11a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 3,
+      "ring_bank": "0x2180",
+      "cmd_position_offset": "0x21a8",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x21e8",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x19a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 4,
+      "ring_bank": "0x6000",
+      "cmd_position_offset": "0x6028",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x6068",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x41a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 5,
+      "ring_bank": "0x6080",
+      "cmd_position_offset": "0x60a8",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x60e8",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x49a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 6,
+      "ring_bank": "0x6100",
+      "cmd_position_offset": "0x6128",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x6168",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x51a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    },
+    {
+      "index": 7,
+      "ring_bank": "0x6180",
+      "cmd_position_offset": "0x61a8",
+      "cmd_position": "0x00000000",
+      "resp_position_offset": "0x61e8",
+      "resp_position": "0x00000000",
+      "boot_status_offset": "0x59a4",
+      "boot_status": "0x00000003",
+      "ready_bit": true
+    }
+  ],
+  "access": {
+    "mmio_writes": [],
+    "dma_mappings": [],
+    "interrupts_enabled": false,
+    "firmware_uploaded": false
+  }
+}

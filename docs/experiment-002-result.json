@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-05",
+  "experiment": "002-dma-engine",
+  "status": "success",
+  "execution": {
+    "mapped_pages": 5,
+    "descriptors_published": true,
+    "descriptor_words_written": 10,
+    "ring_pointer_writes": 0,
+    "doorbell_writes": 0,
+    "dma_control_writes": 4,
+    "dma_readback_reset_global": "0x0001fe01",
+    "dma_readback_global_only": "0x00000001",
+    "dma_readback_global_dsp0": "0x00000003",
+    "dma_restored_to_cold_reset": true,
+    "descriptor_readback_ok": true,
+    "all_dsps_ready": true,
+    "pages_unchanged": true,
+    "published_ring_state_unchanged": true,
+    "descriptors_restored_to_zero": true,
+    "interrupted": false
+  },
+  "independent_verification": {
+    "transport": "vfio-pci",
+    "dma_mappings": 0,
+    "mmio_writes": 0,
+    "dma_control": "0x0001fe00",
+    "ring_words_read": 176,
+    "zero_ring_words": 176,
+    "all_dsps_ready": true
+  },
+  "cleanup": {
+    "driver": null,
+    "driver_override": null,
+    "enable_count": 0,
+    "pci_command": "0x0002",
+    "bus_master_enable": false
+  },
+  "source_sha256": "9c7614fec59b8055b5ecaf2c71b3185ddea555a1b28c473eff3d287a944cf866",
+  "binary_sha256": "3a84b501014f91d3f4ecaa739f4fd2765d1f64c7e4c6bf70687eabea076ee698"
+}

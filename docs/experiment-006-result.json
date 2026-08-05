@@ -1,0 +1,22 @@
+{
+  "date": "2026-08-05",
+  "experiment": "006-ring-doorbell-write",
+  "target": "0000:03:00.0",
+  "target_offset": "0x2024",
+  "source_sha256": "f31da17ea8f8fb7319bc59ba6a4f34486ccaa2eab624ce93874621e774e3be28",
+  "remote_binary_sha256": "19e8f9c50f4835b0bb4fb7e009f2f6e3d882efe4fac54b9b0c239a80cc63770b",
+  "dma_mappings": 0,
+  "dma_control_writes": 0,
+  "ring_control_writes": 2,
+  "vfio_device_reset_calls": 1,
+  "nonzero_before": 0,
+  "write_one_readback": "0x00000001",
+  "nonzero_after_write": 1,
+  "wait_readback": "0x00000001",
+  "nonzero_after_wait": 1,
+  "restore_readback": "0x00000000",
+  "nonzero_after_restore": 0,
+  "nonzero_after_reset": 0,
+  "reset_recovered": true,
+  "success": true
+}

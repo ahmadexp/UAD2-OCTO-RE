@@ -1,0 +1,40 @@
+name: Research finding
+description: Report a passive capture, static-analysis correction, or bounded result
+title: "[finding] "
+labels: [research]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach vendor binaries, firmware, credentials, or serial numbers.
+  - type: dropdown
+    id: evidence
+    attributes:
+      label: Evidence type
+      options:
+        - Passive hardware observation
+        - Bounded hardware experiment
+        - Static driver analysis
+        - Documentation correction
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware profile
+      description: Include PCI ID, subsystem ID, BAR size, and board revision. Redact serials.
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding and reproduction
+      description: Separate raw observations from interpretation and describe cleanup.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Publication checks
+      options:
+        - label: I removed credentials, serials, private addresses, and proprietary files.
+          required: true

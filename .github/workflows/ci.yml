@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Python syntax
+        run: python3 -m py_compile tools/*.py
+      - name: JSON syntax
+        run: for file in docs/*.json; do python3 -m json.tool "$file" >/dev/null; done
+      - name: Shell syntax
+        run: for file in tools/*.sh; do sh -n "$file"; done
+      - name: Userspace C warnings
+        run: |
+          for file in tools/*.c; do
+            cc -fsyntax-only -Wall -Wextra -Werror "$file"
+          done

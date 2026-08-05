@@ -1,0 +1,39 @@
+{
+  "capture_date": "2026-08-04",
+  "endpoint": "0000:03:00.0",
+  "iommu_group": 16,
+  "group_members": ["0000:03:00.0"],
+  "status_probe": {
+    "transport": "vfio-pci",
+    "iommu_type": "VFIO_TYPE1_IOMMU",
+    "device_flags": 3,
+    "decoded_device_flags": ["PCI", "RESET"],
+    "bar0_size": 65536,
+    "dma_mappings": 0,
+    "mmio_writes": 0,
+    "dsp_status_changed": false,
+    "all_dsps_ready": true
+  },
+  "dma_map_smoke_test": {
+    "iova_page_sizes": "0x0000000040201000",
+    "decoded_page_sizes": [4096, 2097152, 1073741824],
+    "mapped_iova": "0x0000000100000000",
+    "mapped_bytes": 4096,
+    "published_to_device": false,
+    "canary_unchanged": true,
+    "unmapped_bytes": 4096
+  },
+  "ring_register_capture": {
+    "rings": 16,
+    "words_per_ring": 11,
+    "ring_words_read": 176,
+    "nonzero_ring_words": 0
+  },
+  "cleanup": {
+    "driver": null,
+    "driver_override": null,
+    "enable_count": 0,
+    "pci_command": "0x0002",
+    "bus_master_enable": false
+  }
+}

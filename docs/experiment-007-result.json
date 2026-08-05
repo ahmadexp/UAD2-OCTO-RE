@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-05",
+  "experiment": "007-empty-ring-activation",
+  "target": "0000:03:00.0",
+  "source_sha256": "37d6be7cf0357b5795a06e95d3302633280823bd9d4a50971cdb7cb8be77ac9a",
+  "remote_binary_sha256": "a2af94a036c14b5492fc55bf53cbeea544970e57eeaa587587fb39bdb741cc11",
+  "mapped_pages": 5,
+  "descriptor_words_written": 10,
+  "ring_pointer_writes": 1,
+  "doorbell_writes": 1,
+  "dma_control_writes": 4,
+  "dma_readback_reset_global": "0x0001fe01",
+  "dma_readback_global_only": "0x00000001",
+  "dma_readback_global_dsp0": "0x00000003",
+  "dma_restored_to_cold_reset": true,
+  "descriptor_readback_ok": true,
+  "all_dsps_ready": true,
+  "pages_unchanged": true,
+  "published_ring_state_unchanged": true,
+  "descriptors_restored_to_zero": true,
+  "follow_up_reset_recovered": true,
+  "success": true
+}

@@ -1,0 +1,40 @@
+{
+  "capture_date": "2026-08-04",
+  "host": {
+    "address": "redacted-private-host",
+    "os": "CentOS Stream 10 (Coughlan)",
+    "kernel": "6.12.0-251.el10.x86_64"
+  },
+  "pci": {
+    "bdf": "0000:03:00.0",
+    "vendor": "0x1a00",
+    "device": "0x0002",
+    "subsystem_vendor": "0x1a00",
+    "subsystem_device": "0x0005",
+    "class": "0x048000",
+    "revision": "0x00",
+    "irq": 255,
+    "numa_node": -1,
+    "driver": null,
+    "iommu_group": 16,
+    "enable_count": 0,
+    "link": {
+      "current_speed": "2.5 GT/s PCIe",
+      "current_width": 1,
+      "max_speed": "2.5 GT/s PCIe",
+      "max_width": 1
+    },
+    "bar0": {
+      "start": "0x8d000000",
+      "end": "0x8d00ffff",
+      "size": 65536,
+      "enabled": false
+    },
+    "config_header_hex": "001a02000000100000008004100000000000008d000000000000000000000000000000000000000000000000001a0500000000004000000000000000ff010000"
+  },
+  "notes": [
+    "PCI command is 0x0000, so memory decoding and bus mastering are disabled.",
+    "The endpoint is alone in IOMMU group 16.",
+    "No kernel driver was bound when captured."
+  ]
+}

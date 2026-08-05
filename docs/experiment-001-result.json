@@ -1,0 +1,45 @@
+{
+  "date": "2026-08-04",
+  "experiment": "001-ring-descriptors",
+  "status": "success",
+  "preconditions": {
+    "pci_command": "0x0000",
+    "driver": null,
+    "bus_master_enable": false,
+    "iommu_group": 16,
+    "iommu_group_isolated": true,
+    "all_ring_words_zero": true,
+    "all_dsps_ready": true
+  },
+  "execution": {
+    "mapped_pages": 5,
+    "mapped_iova_base": "0x0000000010000000",
+    "descriptors_published": true,
+    "descriptor_words_written": 10,
+    "ring_pointer_writes": 0,
+    "doorbell_writes": 0,
+    "dma_control_writes": 0,
+    "descriptor_readback_ok": true,
+    "all_dsps_ready": true,
+    "pages_unchanged": true,
+    "descriptors_restored_to_zero": true,
+    "interrupted": false
+  },
+  "independent_verification": {
+    "transport": "vfio-pci",
+    "ring_words_read": 176,
+    "zero_ring_words": 176,
+    "all_dsps_ready": true,
+    "dma_mappings": 0,
+    "mmio_writes": 0
+  },
+  "cleanup": {
+    "driver": null,
+    "driver_override": null,
+    "enable_count": 0,
+    "pci_command": "0x0002",
+    "bus_master_enable": false
+  },
+  "source_sha256": "a8cc4cd2fcd7dca172435ed0a6e4e7983f6ac261bae855a3383db68d6d0306a9",
+  "binary_sha256": "29eeebe303763536417895b94336ebdcb24ce483a992840720e917f1673eb6f6"
+}

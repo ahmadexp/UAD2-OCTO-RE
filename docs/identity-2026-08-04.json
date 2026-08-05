@@ -1,0 +1,49 @@
+{
+  "capture_date": "2026-08-04",
+  "transport": "uio_pci_generic",
+  "pci": {
+    "bdf": "0000:03:00.0",
+    "vendor_device": "1a00:0002",
+    "subsystem": "1a00:0005",
+    "bar0_size": 65536,
+    "bus_mastering_during_capture": false
+  },
+  "identity": {
+    "serial": "redacted",
+    "serial_length_before_nul": 14,
+    "fpga_revision": "0xa012dc0d",
+    "firmware_generation": "v2",
+    "extended_capabilities": "0x00300811",
+    "decoded_dsp_count": 8,
+    "decoded_family": 3
+  },
+  "access": {
+    "mmio_reads": [
+      "0x0020",
+      "0x0024",
+      "0x0028",
+      "0x002c",
+      "0x2218",
+      "0x2234"
+    ],
+    "mmio_writes": [],
+    "dma_mappings": [],
+    "interrupts_enabled": false,
+    "firmware_uploaded": false
+  },
+  "cleanup": {
+    "driver": null,
+    "driver_override": null,
+    "enable_count": 0,
+    "pci_command": "0x0002",
+    "memory_space_enable": true,
+    "bus_master_enable": false
+  },
+  "notes": [
+    "The serial was observed successfully but is intentionally not stored.",
+    "Bit 31 of FPGA revision indicates the v2 capability format used by related endpoints.",
+    "Bits 15:8 of extended capabilities decode to 8 DSPs.",
+    "Bits 25:20 of extended capabilities decode to family value 3.",
+    "CentOS retained PCI memory-space decoding after pci_disable_device; bus mastering remains disabled."
+  ]
+}
