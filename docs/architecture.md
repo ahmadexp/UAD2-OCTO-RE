@@ -14,23 +14,24 @@ References:
 - [Open Apollo](https://github.com/rolotrealanis98/open-apollo)
 - [Experimental uad2 Linux driver](https://github.com/stepbrobd/uad2)
 
-The related public implementations suggest this path:
+The related public implementations and Experiments 013 through 016 establish
+this host-side path:
 
 ```text
 userspace
   -> bounded kernel DMA allocation
   -> FPGA command ring in BAR0
   -> FPGA DMA fetch of a 16-byte descriptor or larger command buffer
-  -> per-DSP firmware command processor
+  -> DSP command consumer
   -> SHARC program or module load
   -> response ring and completion interrupt
 ```
 
-The public ring description is unusually useful for generic compute. A ring
-entry is reported as four little-endian 32-bit words. It can carry an inline
-command or reference a host DMA buffer. Firmware loading is reported as command
-`0x00120000` with parameter `0x80040000`, followed by an opaque program image.
-All of this remains a hypothesis for the OCTO until observed on the card.
+Each ring entry is four little-endian 32-bit words. It can carry an inline
+command or reference a host DMA buffer. Static analysis recovers a runtime
+block loader using command base `0x80040000`, argument `0x00120000`, and an
+opaque image. Its safe relationship to the exact `HBUT` updater container is
+not established, so no image has been sent to the card.
 
 ## What generic compute requires
 
@@ -52,12 +53,12 @@ cases.
 
 ## Main unknowns
 
-- Exact SHARC part number and boot configuration on this board.
+- Optical confirmation of the ADSP-21469-family part number and boot straps.
 - Whether the FPGA or resident firmware authenticates program containers.
 - Whether a vendor firmware image is mandatory before DSP ring commands work.
-- The OCTO ring-bank formula and whether all eight DSPs are independently
-  addressable.
-- Reset granularity and a reliable recovery procedure.
+- The runtime framework image and loader command framing.
+- Core-local recovery after a hung program. Empty-transport per-DSP engine
+  reset and whole-card VFIO recovery are reliable.
 - Whether the FPGA supports arbitrary host-to-DSP transfers or only a fixed set
   of firmware command types.
 

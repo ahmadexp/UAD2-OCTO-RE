@@ -17,15 +17,17 @@ used for general-purpose computation.
 
 ## Current result
 
-The PCIe transport, register layout, bounded VFIO DMA, ring descriptors, DSP0
-DMA enable, interrupt masks, and reliable endpoint recovery are established on
-one UAD-2 OCTO Rev 5 card. The FPGA dequeues a correctly framed official query,
-but the resident DSP firmware has not returned a response under the reproduced
-partial initialization sequence.
+The PCIe transport is now reproduced across all eight DSPs on one UAD-2 OCTO
+Rev 5 card. All 16 four-page rings can be published through 64 IOMMU-contained
+pages, every DSP engine can be enabled, official connect and query commands are
+dequeued, and explicit cleanup plus VFIO reset recovers the cold state.
 
-General-purpose DSP execution is therefore **not yet achieved**. The next
-technical milestone is recovering the complete device and per-DSP startup
-sequence before any loader or firmware command is attempted.
+General-purpose DSP execution is **not yet achieved**. The queries receive no
+reply because the card appears to be in a boot/framework state without the
+runtime service expected by those commands. The exact matching official OCTO
+firmware-update container has been identified offline, but it is potentially
+persistent and has not been loaded. The next milestone is recovering the
+volatile runtime loader and container transform before attempting a heartbeat.
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -34,8 +36,15 @@ sequence before any loader or firmware command is attempted.
 | VFIO Type 1 IOMMU containment | Confirmed | [`docs/vfio-2026-08-04.json`](docs/vfio-2026-08-04.json) |
 | Ring descriptors and index registers | Confirmed | [`docs/protocol-notes.md`](docs/protocol-notes.md) |
 | DSP0 DMA and endpoint reset | Confirmed | Experiments 002 and 003 |
-| Command dequeue | Observed | Experiments 008 through 010 |
-| Response delivery | Not yet observed | [`docs/experiment-010-official-query-interrupt-gates.md`](docs/experiment-010-official-query-interrupt-gates.md) |
+| Complete all-eight ring/DMA startup | Confirmed | [`docs/experiment-013-full-octo-start.md`](docs/experiment-013-full-octo-start.md) |
+| Host command completion | Confirmed | [`docs/experiment-014-016-full-start-queries.md`](docs/experiment-014-016-full-start-queries.md) |
+| Response delivery | Not yet observed | Experiments 014 through 016 |
+| Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
+| Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
+| Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
+| DSP family and data-sheet map | Strong ADSP-21469 evidence | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
+| Exact matching firmware container | Identified offline, not loaded | [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md) |
+| Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
 | DSP program loading | Not attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Design only | [`docs/architecture.md`](docs/architecture.md) |
 
@@ -63,6 +72,10 @@ these tools on an older profile.
 - [`docs/protocol-notes.md`](docs/protocol-notes.md): ring, DMA, and interrupt model
 - [`docs/experiment-methodology.md`](docs/experiment-methodology.md): safety and evidence rules
 - [`docs/official-driver-static-analysis.md`](docs/official-driver-static-analysis.md): hash-locked driver findings
+- [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md): official device-start state machine
+- [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md): SHARC identification and address map
+- [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
+- [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
 - [`kernel/`](kernel): minimal read-only Linux identity probe
@@ -88,9 +101,9 @@ compile a probe:
 export UAD2_TARGET=user@uad2-host
 ```
 
-Do not begin with the query experiment. The query tool exists to preserve the
-completed research procedure, and the documented initialization gap must be
-closed before another recognized command is justified.
+Do not begin with the query experiment. The query tool preserves a completed
+negative experiment. Repeating service queries before a runtime is loaded is
+not justified.
 
 ## Experiment history
 
@@ -105,6 +118,19 @@ closed before another recognized command is justified.
 9. Submit two candidate framings of official query 026, with no response.
 10. Repeat the corrected query with official DSP0 interrupt gates, with no
     response, then independently verify full recovery.
+11. Publish four pages for both DSP0 rings in the official order with DMA
+    disabled, then independently confirm all 256 ring words returned to zero.
+12. Prove the optional 4 MiB audio path is absent on OCTO with a read-only BAR
+    snapshot.
+13. Reproduce the full empty startup across all eight DSPs and independently
+    verify exact recovery.
+14. Submit query 026 after full startup. Command consumed, no response.
+15. Reproduce official connect commands, then query 026. All commands consumed,
+    no response.
+16. Reproduce connect commands, then query 027. All commands consumed, no
+    response.
+17. Pulse and recover each official per-DSP reset path independently with all
+    rings empty and IOMMU-contained.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:
@@ -122,8 +148,8 @@ python3 tools/inspect_official_driver.py /path/to/UAD2Pcie.sys
 
 The verifier accepts only SHA-256
 `20a11d5b51a4c5093f0c6c3cb80ba132959dcae3362547f4a41ea59f0dd99a6b`
-and checks 14 instruction signatures supporting the documented ring,
-interrupt, and query constants.
+and checks 45 instruction signatures supporting the documented ring, startup,
+interrupt, DMA, DSP-ready, and query constants.
 
 ## Prior work
 

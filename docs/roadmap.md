@@ -11,22 +11,28 @@ buffers, report completion, and recover from failure.
 - [x] Confirm ring descriptors and index roles.
 - [x] Enable only DSP0 DMA under a bounded mapping.
 - [x] Reproduce DSP0 interrupt masks.
-- [ ] Recover the complete device-start sequence.
-- [ ] Reproduce four-page command and response ring initialization in official
-      order.
+- [x] Recover the complete device-start sequence statically.
+- [x] Reproduce four-page command and response ring initialization in official
+      order with DMA disabled.
+- [x] Resolve the shared 4 MiB tables as an optional audio transport that the
+      OCTO capability branch does not instantiate.
+- [x] Recover the eight-DSP compressed interrupt-vector mapping.
 - [ ] Receive one benign response from resident firmware.
 
 ## Phase 2: loader and executable format
 
-- [ ] Identify the exact SHARC model and memory map.
-- [ ] Separate FPGA firmware, DSP framework, and plug-in container formats.
+- [x] Identify the ADSP-21469 family and transcribe its data-sheet memory map.
+- [ ] Confirm the exact package marking on the tested board.
+- [ ] Separate persistent FPGA firmware, DSP framework, and plug-in containers.
+- [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
 - [ ] Determine whether executable containers are signed or authenticated.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
-- [ ] Build an offline parser with strict bounds and corpus tests.
+- [x] Build a bounded offline wrapper parser with synthetic tests.
+- [ ] Decode and parse the transformed payload into segments and relocations.
 
-Firmware-management command constants have been observed statically, but they
-remain outside the current experiment boundary. Knowing a command number is not
-enough to make it safe.
+The exact `HBUT` artifact matches the target's FPGA revision, but the updater
+warns against power loss. It remains outside the experiment boundary until the
+persistent update path is separated from the volatile DSP framework loader.
 
 ## Phase 3: first controlled program
 
@@ -42,7 +48,8 @@ enough to make it safe.
 - [ ] Linux kernel transport with no arbitrary MMIO or physical-address API.
 - [ ] Userspace library for capabilities, buffers, programs, jobs, and waits.
 - [ ] Per-DSP scheduling and failure isolation.
-- [ ] Conformance tests for all eight DSPs.
+- [x] Validate empty-transport reset isolation across all eight DSP engines.
+- [ ] Validate program and buffer isolation across all eight DSP cores.
 - [ ] Performance measurements against CPU implementations.
 
 ## Stop conditions

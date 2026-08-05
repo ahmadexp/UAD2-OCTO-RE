@@ -12,7 +12,9 @@ python3 tools/inspect_official_driver.py /path/to/UAD2Pcie.sys
 ```
 
 It refuses any other hash and verifies the PE instruction bytes supporting the
-offset, ring-size, interrupt, and query constants below.
+offset, ring-size, startup, interrupt, and query constants below. The full
+ordered startup reconstruction is in
+[`device-startup-sequence.md`](device-startup-sequence.md).
 
 ## Ring class
 
@@ -48,11 +50,32 @@ enabled before ring publication completed. Entry zero still resides in the
 published response page, but exact reproduction requires all four pages and
 the official ordering.
 
-The higher device-start path at `0x1400054b8` also programs interrupt-manager
-state and runs additional device-level initialization before invoking the
-per-DSP start routine. Those prerequisites are not yet reduced to a bounded
-MMIO and command sequence. This is why Experiment 010 is not followed directly
-by a four-response-page retry.
+The resume/start path at `0x140007bc8` clears interrupt state, pulses DMA reset,
+acknowledges low interrupt bits, and starts every reported DSP. It publishes
+two shared 4 MiB DMA tables and enables vector 40 only when an optional audio
+extension was created during device mapping. The observed OCTO capability word
+`0x00300811` makes that predicate false. The interrupt manager's DMA shadow
+begins at one. Each per-DSP start adds bit
+`1 << (dsp_index + 1)`, producing `0x00000003` after DSP 0 and
+`0x000001ff` after all eight cores.
+
+The complete order is statically bounded, but not every stage is safe to
+execute as a single experiment yet. Experiment 011 therefore reproduces only
+the official command and response ring initializer with DMA disabled and no
+command submission.
+
+The macOS `CPcieDSP::ResetDSP` path calls
+`CPcieIntrManager::ResetDMAEngine(dsp)`. It clears enable bit `dsp + 1`, pulses
+reset bit `dsp + 9`, then clears the reset bit while leaving that DSP engine
+disabled. Experiment 017 executed that sequence independently for all eight
+engines, re-enabled only the tested engine, and recovered every case. See
+[`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md).
+
+For eight-DSP devices the interrupt manager compresses five logical vectors
+per DSP into four physical bits. Logical offsets zero through three map to the
+corresponding four-bit group and logical offset four is unmapped. The callback
+shadow for all eight DSPs is `0xcccccccc`; a queued DSP0 response and command
+produce `0xcccccccf`.
 
 ## Query 026 ABI
 
@@ -70,3 +93,15 @@ Separate block-send callers use command DMA references. Commands observed near
 firmware-management paths include `0x000d0000`, `0x00120000`, and `0x000e0000`.
 They are outside the current safety boundary and must not be issued merely
 because their framing is known.
+
+The symbolized macOS implementation labels its runtime wrapper `LoadFirmware`.
+It calls the block helper with command base `0x80040000`, argument
+`0x00120000`, and timeout `0x249f0` (150,000 ms). The block helper handles
+bounded command buffers through ring DMA references and waits on the ordinary
+response-descriptor mechanism. This proves that a volatile command-ring loader
+exists, but does not yet identify its accepted image format.
+
+Separate static analysis of UAD 11.0.1 `UADPerfMon` shows that `FBUT`, `GBUT`,
+and `HBUT` select the firmware-update interface. The exact OCTO `HBUT` artifact
+matches BAR revision `0xa012dc0d` and is treated as potentially persistent. See
+[`firmware-container-analysis.md`](firmware-container-analysis.md).

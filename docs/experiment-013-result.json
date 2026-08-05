@@ -1,0 +1,19 @@
+{
+  "date": "2026-08-05",
+  "experiment": "013-full-octo-empty-start",
+  "target": "0000:03:00.0",
+  "mapped_pages": 64,
+  "dsp_engines_enabled": 8,
+  "command_entries_submitted": 0,
+  "audio_extension_programmed": false,
+  "published_all_sixteen_rings": true,
+  "pages_unchanged": true,
+  "all_dsps_ready": true,
+  "interrupt_enable_remained_zero": true,
+  "dma_control_reached": "0x000001ff",
+  "mmio_writes_including_cleanup": 339,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_called": true,
+  "vfio_reset_recovered": true,
+  "success": true
+}

@@ -7,7 +7,7 @@ observed. An address appearing here does not authorize writing it.
 | Offset or range | Candidate meaning | Initial access | OCTO status |
 |---:|---|---|---|
 | `0x0020..0x002c` | Serial or identity string | Read | Observed, 14 ASCII digits plus NUL padding |
-| `0x0030..0x0034` | Firmware base address | Do not read yet | Unobserved |
+| `0x0030..0x0034` | Firmware or shared-range base | Read | Observed as `0x000000002b89b176`; exact meaning unresolved |
 | `0x2000` | DSP 0 command ring window | Read, then bounded VFIO writes | Observed |
 | `0x2200` | DMA master control | Bounded VFIO writes only | Observed cold as `0x0001fe00` |
 | `0x2204` | Interrupt-enable bitmask | Bounded VFIO writes only | DSP 0 vectors accepted as `0x0000001f` |
@@ -15,8 +15,8 @@ observed. An address appearing here does not authorize writing it.
 | `0x2218` | FPGA revision | Read | Observed as `0xa012dc0d`, v2 bit set |
 | `0x2234` | Extended capabilities | Read | Observed as `0x00300811`, DSP count 8 |
 | `0x3800` | Mixer or shared SRAM window | Do not read yet | Unobserved |
-| `0x5e00` | DSP 4 command ring window | Do not read yet | Unobserved |
-| `0x8000..0xbfff` | Scatter-gather tables | Never write before IOMMU setup | Unobserved |
+| `0x6000` | DSP 4 command ring window | Bounded VFIO reads and writes | Observed, published and restored in Experiment 013 |
+| `0x8000..0xbfff` | Optional audio playback/capture scatter-gather tables | Read only on OCTO | All 4,096 dwords observed zero; static branch proves inapplicable to subsystem `0005` |
 | `0xc000..0xcfff` | Firmware mailbox and descriptors | Do not read yet | Unobserved |
 
 Candidate DSP ring formula from related endpoints:
