@@ -34,6 +34,14 @@ and 87 official resource instances are recovered, but their DSP-side payloads
 remain opaque. The next milestone is a valid runtime response followed by a
 target-specific harmless program.
 
+The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
+confirms the extended header, physical 4 KiB payload chain, four-dword response
+descriptor, command and response classes, and timeout used in Experiment 021.
+The complete installer contains 47 consistently sized firmware wrappers. None
+of four common direct SHA-256 constructions explains their opaque 32-byte
+tails. These findings narrow the blocker to device state and the inner payload,
+not the known large-block framing.
+
 | Area | Status | Evidence |
 |---|---|---|
 | PCI identity and 64 KiB BAR | Confirmed | [`docs/hardware-profile.md`](docs/hardware-profile.md) |
@@ -42,13 +50,14 @@ target-specific harmless program.
 | Ring descriptors and index registers | Confirmed | [`docs/protocol-notes.md`](docs/protocol-notes.md) |
 | DSP0 DMA and endpoint reset | Confirmed | Experiments 002 and 003 |
 | Complete all-eight ring/DMA startup | Confirmed | [`docs/experiment-013-full-octo-start.md`](docs/experiment-013-full-octo-start.md) |
-| Host command completion | Confirmed | [`docs/experiment-014-016-full-start-queries.md`](docs/experiment-014-016-full-start-queries.md) |
+| Host command dequeue | Confirmed | [`docs/experiment-014-016-full-start-queries.md`](docs/experiment-014-016-full-start-queries.md) |
 | Response delivery | Not yet observed | Experiments 014 through 016 |
 | Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
 | Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
 | DSP family and data-sheet map | Strong ADSP-21469 evidence | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
 | Exact matching firmware container | Header descriptor consumed, first data descriptor not consumed; potentially persistent | [`docs/experiment-021-runtime-load.md`](docs/experiment-021-runtime-load.md) |
+| Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
@@ -85,9 +94,12 @@ these tools on an older profile.
 - [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md): SHARC identification and address map
 - [`docs/dsp-boot-and-reset-control.md`](docs/dsp-boot-and-reset-control.md): ready polling and per-engine reset bits
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
+- [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md): full installer firmware metadata and comparisons
+- [`docs/runtime-response-state.md`](docs/runtime-response-state.md): explicit boot/runtime state evidence
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
 - [`docs/driver-api.md`](docs/driver-api.md): bounded kernel transport and userspace ABI
+- [`docs/program-execution-gates.md`](docs/program-execution-gates.md): program, API, and all-eight isolation evidence gates
 - [`docs/roadmap.md`](docs/roadmap.md): path toward a general-purpose compute stack
 - [`tools/`](tools): passive capture, VFIO probes, and experiment wrappers
 - [`kernel/`](kernel): read-only identity probe and bounded OCTO transport module
@@ -174,6 +186,20 @@ The verifier accepts only SHA-256
 `20a11d5b51a4c5093f0c6c3cb80ba132959dcae3362547f4a41ea59f0dd99a6b`
 and checks 45 instruction signatures supporting the documented ring, startup,
 interrupt, DMA, DSP-ready, and query constants.
+
+The exact UAD 11.0.1 PCIe loader has a separate verifier:
+
+```bash
+python3 tools/inspect_pcie_loader.py /path/to/UAD2Pcie.sys
+```
+
+The updater state and full-file dispatch paths can be verified with legally
+obtained local copies:
+
+```bash
+python3 tools/inspect_updater_state.py \
+  /path/to/UADPerfMon /path/to/UAD2DriverClient
+```
 
 ## Prior work
 

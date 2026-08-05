@@ -25,6 +25,8 @@ buffers, report completion, and recover from failure.
 - [ ] Confirm the exact package marking on the tested board.
 - [ ] Separate persistent FPGA firmware, DSP framework, and plug-in containers.
 - [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
+- [x] Inventory all 47 installer firmware containers, their build words,
+      compatibility IDs, declared sizes, entropy, and direct SHA-256 tail tests.
 - [ ] Determine whether executable containers are signed or authenticated.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
 - [x] Build a bounded offline wrapper parser with synthetic tests.
@@ -57,6 +59,11 @@ submission is paused pending proof of the persistence boundary.
 
 The transport module remains fail-closed for program, buffer, submit, and wait
 operations until these evidence gates are met.
+
+Detailed response-state evidence is in
+[`runtime-response-state.md`](runtime-response-state.md). The first-program,
+API capability, and 56-case isolation acceptance criteria are in
+[`program-execution-gates.md`](program-execution-gates.md).
 
 ## Phase 3: first controlled program
 

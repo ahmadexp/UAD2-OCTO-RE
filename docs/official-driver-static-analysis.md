@@ -87,12 +87,27 @@ dwords. The response ring entry is a DMA reference with words
 and flushed before the command object.
 
 A neighboring query uses command `0x00270001`, expected header `0x800d0002`,
-and one payload word. It remains untested.
+and one payload word. Experiment 016 executed it after the recovered connect
+sequence; the command dequeued without a response.
 
 Separate block-send callers use command DMA references. Commands observed near
 firmware-management paths include `0x000d0000`, `0x00120000`, and `0x000e0000`.
 They are outside the current safety boundary and must not be issued merely
 because their framing is known.
+
+The exact PCIe driver contains three adjacent wrappers, but adjacency is not a
+call sequence:
+
+| Wrapper address | Command | Expected response | Timeout |
+|---:|---:|---:|---:|
+| `0x14000e340` | `0x000d0000` | `0x80050000` | 5,000 ms |
+| `0x14000e420` | `0x00120000` | `0x80040000` | 150,000 ms |
+| `0x14000e460` | `0x000e0000` | `0x80060000` | 5,000 ms |
+
+The updater's firmware operation reaches the middle wrapper. No recovered
+caller proves that the first and third wrappers surround an initial cold-boot
+HBUT update. Public code that describes these as an unconditional three-phase
+sequence therefore exceeds the available evidence.
 
 The symbolized macOS implementation labels its runtime wrapper `LoadFirmware`.
 It calls the block helper with command base `0x00120000`, expected response
@@ -109,16 +124,62 @@ extended-length form instead: the two header dwords are `command_base |
 0x40000000` and `payload_dwords + 2`. The 2,558,096-byte OCTO HBUT therefore
 uses `0x40120000, 0x0009c226`, followed by 625 page-bounded DMA descriptors.
 
-The independently analyzed official Windows implementation of this device
-logic has SHA-256
-`3e62923ca25fa9c987eddf4ff7d81edfd4245973752bf16ccf61ef18d9c01ed8`.
+The independently analyzed related official Windows implementation of this
+device logic has SHA-256
+`3e62923cb084ffb7fd4f7e5c06c8b65ff521b21e84c6d5f66ea9b64fc6f01ed8`.
 Its `LoadFirmware` method at image address `0x1400102d0` calls `_sendBlock` at
 `0x1400108a8` with command `0x00120000`, response class `0x80040000`, and a
 150,000 ms timeout. The descriptor initializer at `0x1400104c0` accepts fewer
 than `0x10000` dwords per page reference and sets bit 31. This independently
 confirms the extended header plus page-bounded chain used in Experiment 021.
 
+More importantly, the exact UAD 11.0.1 PCIe installer driver has SHA-256
+`d6f980bd3ae94f9206e71302f7ac6f6579e8d2778e92d5e7c34eb5b60d1d7f0a`.
+Its embedded PDB name identifies `UAD2Pcie`, and the accompanying INF binds the
+tested OCTO identity. `PcieDevice::sendBlock` is at `0x14000e978` and its
+`LoadFirmware` wrapper is at `0x14000e420`. It independently establishes:
+
+- extended framing above `0xfffe` payload dwords;
+- `command | 0x40000000` plus `payload_dwords + 2`;
+- one payload descriptor per physical 4 KiB boundary;
+- descriptor length below `0x10000` dwords, valid bit 31, zero word one, and
+  low/high DMA address words;
+- a four-dword response descriptor;
+- command `0x00120000`, response class `0x80040000`, and 150-second timeout.
+
+Run the separate exact-driver verifier with:
+
+```bash
+python3 tools/inspect_pcie_loader.py /path/to/UAD2Pcie.sys
+```
+
+All 19 signatures are hash-locked. This removes large-chain framing as the
+likely explanation for Experiment 021 stopping at its first payload
+descriptor. It does not explain the missing state transition or make another
+HBUT submission safe.
+
 Separate static analysis of UAD 11.0.1 `UADPerfMon` shows that `FBUT`, `GBUT`,
 and `HBUT` select the firmware-update interface. The exact OCTO `HBUT` artifact
 matches BAR revision `0xa012dc0d` and is treated as potentially persistent. See
 [`firmware-container-analysis.md`](firmware-container-analysis.md).
+
+## Updater system-state query
+
+The UAD 11.0.1 updater's version-comparison path requests a 168-byte system
+record through vtable slot `0x68`. Driver status `-0x5c` is classified
+separately and converted to a retry result. The caller permits five retries,
+with a deadline advanced by approximately 200 ms between reads, before it
+compares several cached firmware and framework version fields.
+
+The matching `UAD2DriverClient` implementation issues operation `0x6f`, uses a
+176-byte request record, receives a four-byte status, and copies at most 168
+bytes to the caller. This proves that the official stack has an explicit
+system-state query and a transient not-ready result. It does not reveal the
+device-side transition that makes runtime queries responsive.
+
+These two binaries can be checked without redistributing them:
+
+```bash
+python3 tools/inspect_updater_state.py \
+  /path/to/UADPerfMon /path/to/UAD2DriverClient
+```

@@ -7,6 +7,9 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+TOOLS = ROOT / "tools"
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
 
 
 def load_tool(name: str):
@@ -195,6 +198,90 @@ class UadContainerInspectorTests(unittest.TestCase):
             path.write_bytes(b"HBUT")
             with self.assertRaisesRegex(ValueError, "shorter than"):
                 module.inspect(path)
+
+
+class FirmwareInventoryTests(unittest.TestCase):
+    def test_timestamp_decoder_rejects_legacy_counter_and_decodes_build_time(self):
+        module = load_tool("inventory_uad_firmware")
+        self.assertIsNone(module.timestamp_utc(7))
+        self.assertEqual(module.timestamp_utc(0x616E1720), "2021-10-19T00:53:52Z")
+
+    def test_sha256_tail_hypotheses_are_explicit(self):
+        module = load_tool("inventory_uad_firmware")
+        prefix = bytes(32)
+        payload = b"synthetic payload"
+        digest = __import__("hashlib").sha256(payload).digest()
+        self.assertEqual(
+            module.sha256_tail_matches(prefix + digest + payload), ["payload"]
+        )
+
+
+class ContainerComparisonTests(unittest.TestCase):
+    def test_comparison_reports_equal_payload_structure(self):
+        module = load_tool("compare_uad_containers")
+        header = struct.pack(
+            "<16I",
+            int.from_bytes(b"HBUT", "little"),
+            0x616E1720,
+            42,
+            0xA012DC0D,
+            1,
+            2,
+            4,
+            0xFFFFFFFF,
+            *range(8),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            left = pathlib.Path(directory) / "left.bin"
+            right = pathlib.Path(directory) / "right.bin"
+            left.write_bytes(header + bytes(range(16)))
+            right.write_bytes(header + bytes(range(16)))
+            result = module.compare(left, right)
+        self.assertEqual(result["equal_byte_fraction"], 1.0)
+        self.assertEqual(result["longest_equal_run"], 16)
+        self.assertEqual(result["equal_16_byte_blocks"], 1)
+        self.assertEqual(result["equal_header_words"], list(range(16)))
+
+
+class PcieLoaderInspectorTests(unittest.TestCase):
+    def test_loader_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_pcie_loader")
+        addresses = [address for address, _bytes, _meaning in module.SIGNATURES]
+        self.assertGreaterEqual(len(addresses), 12)
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertEqual(len(module.KNOWN_SHA256), 64)
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+
+    def test_unknown_loader_driver_is_refused(self):
+        module = load_tool("inspect_pcie_loader")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not the PCIe driver")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "driver hash mismatch"):
+                module.inspect(pathlib.Path(candidate.name))
+
+
+class UpdaterStateInspectorTests(unittest.TestCase):
+    def test_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_updater_state")
+        for signatures in (module.PERFMON_SIGNATURES, module.CLIENT_SIGNATURES):
+            addresses = [address for address, _bytes, _meaning in signatures]
+            self.assertEqual(len(addresses), len(set(addresses)))
+            self.assertTrue(all(expected for _address, expected, _meaning in signatures))
+        self.assertEqual(len(module.PERFMON_SHA256), 64)
+        self.assertEqual(len(module.CLIENT_SHA256), 64)
+
+    def test_unknown_updater_binary_is_refused(self):
+        module = load_tool("inspect_updater_state")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not an updater")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.verify(
+                    pathlib.Path(candidate.name),
+                    module.PERFMON_SHA256,
+                    module.PERFMON_SIGNATURES,
+                )
 
 
 class BillContainerInspectorTests(unittest.TestCase):

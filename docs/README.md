@@ -17,9 +17,12 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`dsp-model-and-memory-map.md`](dsp-model-and-memory-map.md): ADSP-21469-family evidence and data-sheet map
 - [`dsp-boot-and-reset-control.md`](dsp-boot-and-reset-control.md): boot polling and all-eight reset isolation
 - [`firmware-container-analysis.md`](firmware-container-analysis.md): exact OCTO artifact and unresolved loader rules
+- [`firmware-family-inventory.md`](firmware-family-inventory.md): all 47 firmware-update wrappers and statistical comparisons
+- [`runtime-response-state.md`](runtime-response-state.md): why dequeue works without replies and the required next evidence
 - [`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md): metadata-only inventory of official `Bill` resources
 - [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format, conditional transform, and runtime allocator
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
+- [`program-execution-gates.md`](program-execution-gates.md): harmless-program, API, recovery, and all-eight isolation criteria
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 
 ## Captured baselines

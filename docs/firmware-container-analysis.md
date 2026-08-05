@@ -120,7 +120,7 @@ opaque bytes after receipt.
 
 ## Comparative payload evidence
 
-Every examined `FBUT`, `GBUT`, and `HBUT` container obeys the same exact size
+All 47 `FBUT`, `GBUT`, and `HBUT` containers in the installer obey the same exact size
 relation, `(word[6] + 16) * 4 == file_size`. The OCTO HBUT payload has measured
 Shannon entropy of 7.999936 bits per byte and contains no recognizable
 plaintext executable magic. Same-size HBUT and GBUT variants match at about
@@ -129,6 +129,10 @@ or authenticated encodings. It is not enough to identify a cipher, key,
 compression scheme, signature, or relocation model. Some same-size FBUT
 variants retain large identical regions, so the three magic families cannot be
 assumed to share one inner representation.
+
+The metadata-only family inventory, direct SHA-256 tail tests, and reproducible
+pairwise metrics are in
+[`firmware-family-inventory.md`](firmware-family-inventory.md).
 
 ## Offline tools
 
@@ -143,9 +147,13 @@ python3 tools/inspect_uad_container.py /path/to/FirmwareUpdateOcto.bin
 has been extracted into compound-document streams. Neither tool redistributes
 vendor material.
 
+`tools/inventory_uad_firmware.py` inventories the complete firmware family and
+tests common direct SHA-256 tail constructions. `tools/compare_uad_containers.py`
+compares opaque payload structure without attempting to decode or export it.
+
 ## What remains unknown
 
-- Meaning of header words 1, 2, 4, 5, 7, and the opaque tail.
+- Exact consumer semantics of header words 1, 2, 4, 5, 7, and the opaque tail.
 - Payload transform and integrity algorithm.
 - Public-key or symmetric authentication, if any.
 - Segment and relocation records after decoding.
@@ -158,3 +166,6 @@ large-block framing. The device consumed the extended command header but did
 not complete the first data descriptor or write a response. Cleanup and reset
 fully recovered the card. Further hardware submission is paused until the
 persistent update state machine can be excluded.
+
+The response-state evidence and required next observations are separated in
+[`runtime-response-state.md`](runtime-response-state.md).
