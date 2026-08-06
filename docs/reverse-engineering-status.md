@@ -64,9 +64,15 @@ payloads has not been recovered.
   `FINAL_INIT` stream. It also recovered the official Flat-V6 `bFLT` revision-6
   section, relocation, and exported-entry format used by ADSP-21469 dynamic
   modules.
-- Two adjacent private RealVerb allocations at DM32 `0x9cede` and `0x9cf74`
-  alias exact PM48 spans `0x93494..0x934f7` and `0x934f8..0x9355b`, each 100
-  instructions. They are trace targets, not yet proven code.
+- Experiment 053 performed an RTC power-off and official-driver restart. The
+  resulting trace republished all command and response rings and enabled DMA
+  for all eight DSPs. It did not expose firmware-transition magic or ordinary
+  hard-reset writes, so it proves fresh host transport publication but not a
+  captured firmware upload.
+- Experiment 054 completed the previously blocked private-selector retry.
+  Allocation index 1 at `0x9cf74` returned a valid 150-dword response containing
+  only zeros. Its numerical PM48 code shape is therefore not evidence of a
+  clear executable under the recovered readback path.
 
 ## What “full” would mean
 
@@ -92,6 +98,7 @@ build path, not yet a general-purpose UAD execution path.
 Detailed evidence is in
 [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md),
 [`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md),
+[`experiment-053-054-framework-refresh-selector1.md`](experiment-053-054-framework-refresh-selector1.md),
 [`experiment-052-custom-kernel-toolchain.md`](experiment-052-custom-kernel-toolchain.md),
 [`driver-api.md`](driver-api.md), and
 [`bill-resource-analysis.md`](bill-resource-analysis.md).

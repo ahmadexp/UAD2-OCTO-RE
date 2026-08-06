@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "scope": "sanitized metadata for Experiments 053 and 054",
+  "private_payload_bytes_published": false,
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "target_dsp": 0,
+    "linux_boot_id": "b7890c34-139c-4df7-9dba-38e7588793bd"
+  },
+  "experiment_053_official_framework_refresh": {
+    "rtc_cold_poweroff_seconds": 45,
+    "cold_boot_pci_command_before_guest": "0x0000",
+    "guest_boot_required_one_vm_reset": true,
+    "pre_reset_trace_sha256": "de84e7e05481537ae985587dc949319abec35d627cb9f366dfa8f50bb187e4e3",
+    "completed_trace_sha256": "12b2841feecd537e189e44d558c8ed7f1aa61a48fccc4efb4f0d8708369dee77",
+    "completed_trace_lines": 12351,
+    "event_counts": {
+      "vfio_intx_disable": 2,
+      "vfio_intx_enable": 3,
+      "vfio_listener_region_add_ram": 33,
+      "vfio_listener_region_del": 26,
+      "vfio_pci_read_config": 1551,
+      "vfio_pci_reset": 2,
+      "vfio_pci_reset_flr": 2,
+      "vfio_pci_write_config": 178,
+      "vfio_region_read": 10368,
+      "vfio_region_write": 186
+    },
+    "milestones": {
+      "all_command_rings_published": true,
+      "all_response_rings_published": true,
+      "all_eight_dma_enable_seen": true,
+      "bar0_access_seen": true,
+      "firmware_transition_magic_seen": false,
+      "ordinary_hard_reset_assert_seen": false,
+      "ordinary_hard_reset_deassert_seen": false
+    },
+    "published_command_dsps": [0, 1, 2, 3, 4, 5, 6, 7],
+    "published_response_dsps": [0, 1, 2, 3, 4, 5, 6, 7],
+    "windows_iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+    "tools_iso_sha256": "9d74286ea92ddf5b2084fd3f815e95d8dffe0e4fd99be1d45351a67075df10df",
+    "output_fat_sha256_before_and_after": "56dfbf54da8fd8682f8309fcf81eb39323b35275970d8879624316b965b57d41",
+    "clean_guest_shutdown": true,
+    "endpoint_unbound_after_shutdown": true,
+    "pci_command_after_shutdown": "0x0002"
+  },
+  "experiment_054_private_selector_1": {
+    "run_log_sha256": "0fe0fb2de15e9ed3ab8d3c15f2788ac0ea95dad2d85576e381bfbc55759dcd71",
+    "tool_sha256": "95dbc995b3463f78d7050d2139bc7cd68d7b5663ab5f2b5d37e33f63e684932e",
+    "wrapper_sha256": "24a307b0538c4d23e9c3ec6174ffcb245975de4dfd36d69e4fb9fc55d5c10e2d",
+    "all_13_public_resources_accepted": true,
+    "all_33_zero_allocation_commands_consumed": true,
+    "memory_spec_command": "0x00150041",
+    "memory_spec_dwords": 65,
+    "memory_spec_consumed": true,
+    "process_command": [
+      "0x000b0004", "0x00400002", "0x00000001", "0x0009d00a"
+    ],
+    "process_ticks": 1,
+    "process_commands_consumed": true,
+    "process_responses_consumed": true,
+    "process_headers_valid": true,
+    "selector_index": 1,
+    "readback_address_dwords": "0x0009cf74",
+    "readback_resource_spec": "0x01000000",
+    "readback_dwords": 150,
+    "response_header": ["0x80010098", "0x01000000"],
+    "payload_zero_dwords": 150,
+    "payload_nonzero_dwords": 0,
+    "payload_little_endian_sha256": "bd50e12c55dda3ee443c1cb6d71c7bcf6351c4ec96f7bc8d6adec015d1192eea",
+    "readback_command_consumed": true,
+    "readback_response_consumed": true,
+    "readback_response_valid": true,
+    "non_target_ring_indices_unchanged": true,
+    "writes_confined_to_response_prefixes": true,
+    "all_dsps_ready": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true,
+    "iommu_unmap_succeeded": true,
+    "endpoint_unbound_after_trial": true,
+    "exit_code": 0
+  },
+  "claim_boundary": {
+    "fresh_host_ring_publication_after_rtc_cycle": true,
+    "fresh_firmware_upload_observed": false,
+    "private_selector_1_valid_response": true,
+    "private_selector_1_clear_executable_observed": false,
+    "inner_bill_format_recovered": false,
+    "user_authored_uad_kernel_executed": false
+  }
+}

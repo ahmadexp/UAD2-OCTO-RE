@@ -197,14 +197,9 @@ convolution should wait until the memory and overlay ABI is known. Calling the
 current card a general-purpose GPU would be inaccurate: it is an eight-engine
 SHARC accelerator with an audio-oriented command and buffer pipeline.
 
-## Bounded next probe
+## Bounded next probe result
 
-The reproducer now includes `--process-private-snapshot-dsp DSP INDEX` for
-private allocation indices 0 through 31. It derives each address and length
-from the exact zero-allocation sequence, refuses the 64,640-dword index 32,
-caps every response at 430 dwords, and requires a separate acknowledgement.
-The first selector-1 attempt did not reach this command because the resident
-framework no longer returned the first exact Bill response after the preceding
-one-shot trials. Recovery passed. That run is a stale-framework prerequisite
-failure, not evidence for or against the private-resource selector hypothesis.
-A fresh official activation is required before one bounded retry.
+Experiments 053 and 054 completed the required official framework refresh and
+the one bounded selector-1 retry. The exact sequence succeeded, and allocation
+index 1 returned a valid 150-dword payload containing only zeros. See
+[`experiment-053-054-framework-refresh-selector1.md`](experiment-053-054-framework-refresh-selector1.md).
