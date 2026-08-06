@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "date": "2026-08-06",
+  "static_lifecycle": {
+    "driver_sha256": "7b664e8ad67b8104d9797defcc0c707fff55ae4981a725559ed9554f2f55cdf6",
+    "public_commit": "910a8f413d33bc3489d0da8fc613870153ccb4f2",
+    "zero_command": "0x00080004",
+    "pool_zero_unmap_command": "0x00030002",
+    "memspec_command": "0x00150041",
+    "memspec_dwords": 65,
+    "memspec_pairs": 32
+  },
+  "experiment_033_cleanup": {
+    "target_dsp": 0,
+    "resource_ids": ["0x12b", "0x0eb", "0x0c1", "0x0a5", "0x120", "0x0bd", "0x11f", "0x0d0", "0x0f9", "0x0bf", "0x11e", "0x11d", "0x0d1"],
+    "unload_commands_consumed": 13,
+    "polls_ms": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "non_target_ring_indices_unchanged": true,
+    "dma_pages_unchanged": true,
+    "all_dsps_ready": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true,
+    "resource_table_cleared_proven": false
+  },
+  "experiment_034_allocation_preflight": {
+    "first_resource": "0x12b",
+    "first_resource_command_consumed": true,
+    "first_resource_response_consumed": false,
+    "first_resource_response_canary_unchanged": true,
+    "deadline_ms": 600,
+    "zero_commands_submitted": 0,
+    "memspec_submitted": false,
+    "readback_submitted": false,
+    "query_026_afterward_responded": false,
+    "per_dsp_reset_pass_mask": "0x000001fe",
+    "query_026_after_resets_responded": false,
+    "official_reactivation_required": true
+  },
+  "final_endpoint": {
+    "driver": "unbound",
+    "enable": 0,
+    "pci_command": "0x0002",
+    "iommu_group": 16,
+    "all_dsps_ready": true
+  }
+}

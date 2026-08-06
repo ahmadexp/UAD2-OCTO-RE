@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "experiment": "031-post-load-bounded-readback",
+  "date": "2026-08-06",
+  "static_source": {
+    "public_commit": "910a8f413d33bc3489d0da8fc613870153ccb4f2",
+    "kext_sha256": "7b664e8ad67b8104d9797defcc0c707fff55ae4981a725559ed9554f2f55cdf6",
+    "readback_command": "0x000c0004",
+    "readback_response_rule": "requested_dwords + 2",
+    "native_allocation_record_bytes": 2800,
+    "memory_spec_count_offset": "0x0188",
+    "memory_spec_entry_bytes": 16,
+    "readback_count_offset": "0x098c",
+    "readback_entry_bytes": 8,
+    "memory_spec_update_class": "0x00150000"
+  },
+  "exact_target_sha256": "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+  "target_dsp": 0,
+  "resource_id": "0x0000012b",
+  "resource_address_dwords": "0x000e0000",
+  "requested_dwords": 4,
+  "resource_response": [
+    "0x80070004",
+    "0x00000000",
+    "0x0000012b",
+    "0x00010073"
+  ],
+  "resource_accepted": true,
+  "readback_command_consumed": true,
+  "readback_response_descriptor_consumed": false,
+  "readback_response_changed": false,
+  "readback_response_words": [
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5"
+  ],
+  "deadline_ms": 6000,
+  "writes_confined_to_allowed_response_prefixes": true,
+  "all_dsps_ready": true,
+  "non_target_ring_indices_unchanged": true,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_recovered": true,
+  "standalone_post_load_readback_proven": false,
+  "complete_plugin_process_is_prerequisite_candidate": true,
+  "success": false
+}

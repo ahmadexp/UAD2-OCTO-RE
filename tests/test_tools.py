@@ -978,7 +978,7 @@ class Experiment013SourceTests(unittest.TestCase):
 class Experiment014SourceTests(unittest.TestCase):
     def test_query_uses_full_octo_state_and_compressed_mask(self):
         source = (ROOT / "tools" / "vfio_full_query.c").read_text()
-        self.assertIn("#define PAGE_COUNT 66", source)
+        self.assertIn("#define PAGE_COUNT 67", source)
         self.assertIn("#define DMA_ALL_DSPS 0x000001ff", source)
         self.assertIn("#define CALLBACK_SHADOW 0xcccccccc", source)
         self.assertIn("#define QUERY_SHADOW 0xcccccccf", source)
@@ -1003,6 +1003,66 @@ class Experiment014SourceTests(unittest.TestCase):
         self.assertIn("non_target_indices_unchanged", source)
         self.assertIn("EXPECTED_SHA256", wrapper)
         self.assertIn("--post-official-bill-dsp", wrapper)
+        self.assertIn("#define READBACK_COMMAND 0x000c0004", source)
+        self.assertIn("#define READBACK_DWORDS 4", source)
+        self.assertIn("#define READBACK_RESPONSE_WORDS (READBACK_DWORDS + 2)", source)
+        self.assertIn("iommu_unmap_succeeded", source)
+        self.assertIn("--post-official-bill-readback", wrapper)
+
+
+class ProgramRuntimeABITests(unittest.TestCase):
+    def test_runtime_abi_decoder_is_hash_locked_and_structural(self):
+        module = load_tool("inspect_program_runtime_abi")
+        self.assertEqual(
+            module.KNOWN_SHA256,
+            "7b664e8ad67b8104d9797defcc0c707fff55ae4981a725559ed9554f2f55cdf6",
+        )
+        meanings = " ".join(item[2] for item in module.SIGNATURES)
+        self.assertIn("0x000c0004", meanings)
+        self.assertIn("0x00150000", meanings)
+        self.assertIn("low 24-bit offset", meanings)
+        self.assertNotIn("authorization change", meanings.lower())
+
+
+class Experiment032SourceTests(unittest.TestCase):
+    def test_complete_resource_pass_is_exact_bounded_and_fail_closed(self):
+        source = (ROOT / "tools" / "vfio_realverb_sequence.c").read_text()
+        wrapper = (ROOT / "tools" / "uad2-vfio-realverb-sequence.sh").read_text()
+        self.assertIn("#define RESOURCE_COUNT 13", source)
+        self.assertIn("#define CHUNK_COUNT 16", source)
+        self.assertIn("#define PAGE_COUNT (MEMSPEC_PAGE + 1)", source)
+        self.assertIn("#define RESOURCE_WAIT_MS 600", source)
+        self.assertIn("#define READBACK_WAIT_MS 6000", source)
+        self.assertIn("definition->total_bytes != definition->body_bytes + 28U", source)
+        self.assertIn("resource_result->response[2] == definition->id", source)
+        self.assertIn("resource_result->response[3] == definition->command", source)
+        self.assertIn("memory_writes_bounded", source)
+        self.assertIn("non_target_indices_unchanged", source)
+        self.assertIn("VFIO_DEVICE_RESET", source)
+        self.assertIn("iommu_unmap_succeeded", source)
+        self.assertIn("#define ZERO_COMMAND_COUNT 33", source)
+        self.assertIn("#define MEMSPEC_DWORDS 65", source)
+        self.assertIn("0x00080004", source)
+        self.assertIn("0x00150041", source)
+        self.assertIn("cleanup_probe", source)
+        self.assertIn("0x00030002", source)
+        self.assertIn("unload_consumed_count == RESOURCE_COUNT", source)
+        self.assertEqual(wrapper.count("verify_chunk boundary-"), 17)
+        self.assertIn("experiment-029-deadline-safe-sequence", wrapper)
+        self.assertIn("--allocation", wrapper)
+        self.assertIn("UAD2_ALLOW_ONE_SHOT_RESOURCE_PASS", wrapper)
+        self.assertIn(
+            "YES_I_ACCEPT_OFFICIAL_REACTIVATION_MAY_BE_REQUIRED", wrapper
+        )
+        self.assertIn(
+            "fe326c8a6a7d0b40e7958c14debe8ea1bc8d0fb160f7816bbaf9899b83590e84",
+            wrapper,
+        )
+        self.assertIn(
+            "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+            wrapper,
+        )
+        self.assertIn("bus mastering was enabled before VFIO bind", wrapper)
 
 
 class Experiment018SourceTests(unittest.TestCase):

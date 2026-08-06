@@ -38,6 +38,29 @@ the repository cannot honestly substitute a new heartbeat program yet: the
 cipher or authentication algorithm, clear executable, relocations, entry
 point, and program-visible buffer ABI remain unknown.
 
+The outer host runtime ABI is now substantially clearer. The fixed native
+plug-in allocation record is `0x0af0` bytes, its 16-byte memory specs drive a
+`0x00150000` mapped-address patch command, and its 8-byte readback specs drive
+command `0x000c0004` with an exact `requested_dwords + 2` response buffer. A
+bounded four-dword read at the accepted `0x12b` allocation was consumed but
+produced no response. This negative result shows that the command is not a
+standalone decoded-memory oracle; the official driver queues it only inside a
+complete plug-in process transaction.
+
+The entire captured first RealVerb resource pass is now reproduced from Linux.
+All 13 exact resources, carried by 16 page-bounded DMA descriptors, returned
+resource-specific `0x80070004` completions in 1 to 5 ms. The fixed readback
+still produced no response after this complete pass, which cleanly moves the
+next boundary from resource loading to plug-in allocation and `Process`
+metadata.
+
+That full-pass result is one-shot in the current lab state. Subsequent resource
+and query-026 commands were consumed without responses, and exact unload plus
+per-DSP reset did not restore the service. The reproducer therefore requires an
+explicit acknowledgement that fresh official activation may be needed. No
+private-resource zeroing or memory-spec update was executed after the service
+became unavailable.
+
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
 descriptor, command and response classes, and timeout used in Experiment 021.
@@ -75,7 +98,10 @@ is documented but intentionally unexecuted.
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | `Bill` DSP resource acceptance | Exact `0x12b` success from Linux on all eight DSPs | [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md) |
+| Complete RealVerb resource pass | All 13 exact resources accepted sequentially on DSP0; fixed post-pass readback remained unanswered | [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md) |
+| Resource cleanup and allocation preflight | Exact unloads consumed; allocation remained gated because runtime responses stopped | [`docs/experiment-033-034-resource-lifecycle-and-allocation.md`](docs/experiment-033-034-resource-lifecycle-and-allocation.md) |
 | `Bill` inner integrity | Prefix and core one-bit changes rejected; algorithm unresolved | [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md) |
+| Host runtime relocation and readback ABI | Allocation record, memory-spec patch, and readback builders recovered; standalone read produced no response | [`docs/experiment-031-post-load-readback.md`](docs/experiment-031-post-load-readback.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
@@ -128,6 +154,9 @@ these tools on an older profile.
 - [`docs/experiment-027-post-official-linux-response.md`](docs/experiment-027-post-official-linux-response.md): first valid Linux-controlled framework response
 - [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md): device-side Bill integrity differentials
 - [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md): all-eight authenticated loader targeting
+- [`docs/experiment-031-post-load-readback.md`](docs/experiment-031-post-load-readback.md): runtime ABI and bounded negative readback trial
+- [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md): all 13 exact resources accepted with bounded post-pass readback
+- [`docs/experiment-033-034-resource-lifecycle-and-allocation.md`](docs/experiment-033-034-resource-lifecycle-and-allocation.md): exact lifecycle semantics, cleanup, and fail-closed allocation preflight
 - [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
@@ -225,6 +254,20 @@ not justified.
     while exact controls succeed before and after.
 30. Submit the exact authenticated object independently to DSP0 through DSP7.
     All eight accept it, with non-target ring indices unchanged.
+31. Recover the host allocation, runtime memory-spec, and resource-readback
+    ABI. Submit one fixed four-dword read after exact resource acceptance. The
+    command is consumed without a response; canaries, ready state, and reset
+    recovery all pass.
+32. Replay the complete first 13-resource RealVerb pass from Linux. All 13
+    exact responses arrive in 1 to 5 ms, including three two-descriptor
+    resources. Post-pass readback remains unanswered, and bounded recovery
+    passes.
+33. Recover pool-zero unmap semantics and consume the exact 13-resource cleanup
+    list. Command consumption succeeds, but resource-table clearance remains
+    unproven.
+34. Prepare exact private-resource zeroing and the 65-dword memory-spec update.
+    Stop before either is sent because the prerequisite resource response and
+    query-026 service no longer respond after the one-shot full pass.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:
@@ -285,6 +328,7 @@ The public symbolized macOS driver can be checked independently:
 
 ```bash
 python3 tools/inspect_framework_driver.py /path/to/uad2.kext
+python3 tools/inspect_program_runtime_abi.py /path/to/uad2.kext
 ```
 
 Embedded resource structure and narrow hash hypotheses can be summarized

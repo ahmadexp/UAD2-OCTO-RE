@@ -13,22 +13,26 @@ if [ "$#" -gt 3 ] || \
    { [ "$MODE" = "--post-official-bill" ] && [ "$#" -ne 2 ]; } || \
    { [ "$MODE" = "--post-official-bill-flip" ] && [ "$#" -ne 3 ]; } || \
    { [ "$MODE" = "--post-official-bill-dsp" ] && [ "$#" -ne 3 ]; } || \
+   { [ "$MODE" = "--post-official-bill-readback" ] && [ "$#" -ne 2 ]; } || \
    { [ "$MODE" != "--post-official-bill" ] && \
      [ "$MODE" != "--post-official-bill-flip" ] && \
-     [ "$MODE" != "--post-official-bill-dsp" ] && [ "$#" -gt 1 ]; } || \
+     [ "$MODE" != "--post-official-bill-dsp" ] && \
+     [ "$MODE" != "--post-official-bill-readback" ] && [ "$#" -gt 1 ]; } || \
    { [ -n "$MODE" ] && [ "$MODE" != "--connect" ] && \
    [ "$MODE" != "--connect-query-027" ] && \
    [ "$MODE" != "--post-official" ] && \
    [ "$MODE" != "--post-official-bill" ] && \
    [ "$MODE" != "--post-official-bill-flip" ] && \
-   [ "$MODE" != "--post-official-bill-dsp" ]; } || \
+   [ "$MODE" != "--post-official-bill-dsp" ] && \
+   [ "$MODE" != "--post-official-bill-readback" ]; } || \
    [ "$(id -u)" -ne 0 ]; then
 	echo "refusing: invalid full-query mode, arguments, or privileges" >&2
 	exit 1
 fi
 if [ "$MODE" = "--post-official-bill" ] || \
    [ "$MODE" = "--post-official-bill-flip" ] || \
-   [ "$MODE" = "--post-official-bill-dsp" ]; then
+   [ "$MODE" = "--post-official-bill-dsp" ] || \
+   [ "$MODE" = "--post-official-bill-readback" ]; then
 	EXPECTED_SHA256="0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0"
 	if [ ! -f "$PAYLOAD" ] || \
 	   [ "$(sha256sum "$PAYLOAD" | awk '{print $1}')" != "$EXPECTED_SHA256" ]; then
@@ -97,6 +101,8 @@ elif [ "$MODE" = "--post-official-bill-flip" ]; then
 	"$PROBE" "$MODE" "$PAYLOAD" "$MUTATION_OFFSET"
 elif [ "$MODE" = "--post-official-bill-dsp" ]; then
 	"$PROBE" "$MODE" "$PAYLOAD" "$MUTATION_OFFSET"
+elif [ "$MODE" = "--post-official-bill-readback" ]; then
+	"$PROBE" "$MODE" "$PAYLOAD"
 elif [ -n "$MODE" ]; then
     "$PROBE" "$MODE"
 else

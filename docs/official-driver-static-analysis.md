@@ -262,5 +262,68 @@ It confirms the two-dword pool envelope, 4 KiB copy chunks, ten ordinary
 600 ms completion waits, the resource-ID-specific `0x80070004` success form,
 and the final `0x80020044` plus `0xf0060000` status form. It also records the
 exact low-code to host-error mapping. These findings define completion
-handling for a future Linux program API, but cannot be exercised until the DSP
-framework responds. See [`bill-resource-analysis.md`](bill-resource-analysis.md).
+handling for a future Linux program API. Exact `0x12b` completion has now been
+exercised on all eight DSPs, but program execution remains gated. See
+[`bill-resource-analysis.md`](bill-resource-analysis.md).
+
+## Plug-in runtime metadata, relocation, and readback
+
+The exact public, symbolized x86-64 driver also exposes the host-side runtime
+metadata consumed after resource allocation. The native `UAD2PluginAllocInfo`
+record is `0x0af0` bytes and the legacy record is `0x0a2c` bytes. In the native
+record, the memory-spec count is at `0x188`, each memory-spec entry is 16
+bytes, the readback-spec count is at `0x98c`, and each readback entry is 8
+bytes.
+
+`CPluginInstance::_transmitMemSpecUpdates` emits command class `0x00150000`.
+For each memory spec, bits 31 through 24 select a mapped resource and bits 23
+through 0 provide its offset. The host resolves that pair to the selected
+resource's mapped base plus the offset, then associates the resolved value with
+the mapped private-resource destination. This is a concrete outer runtime
+relocation or address-patch layer. It is not evidence that the host decodes
+segments, relocations, or an entry point inside the opaque `Bill` body.
+
+The same pool code gives exact lifecycle meanings to two captured commands. A
+mapping with no functional resource payload emits `0x00080004`, mapped offset,
+zero, and length. Releasing an ordinary pool-zero mapping emits `0x00030002`,
+resource ID, zero, and zero. Both instruction sequences are included in the
+hash-locked verifier.
+
+`CPluginInstance::_queueReadbackDescriptors`, called from `Process`, emits the
+four-dword command `0x000c0004`, resolved resource address, requested dword
+count, and original resource spec. Its paired response descriptor contains
+exactly the requested dword count plus two dwords. The separate synchronous
+plug-in control command `0x001f0004` is derived from plug-in flags and routing;
+it is not a general entry-point record.
+
+These facts can be reproduced without publishing driver bytes:
+
+```bash
+python3 tools/inspect_program_runtime_abi.py /path/to/uad2.kext
+```
+
+The verifier is locked to SHA-256
+`7b664e8ad67b8104d9797defcc0c707fff55ae4981a725559ed9554f2f55cdf6`
+at public source commit `910a8f413d33bc3489d0da8fc613870153ccb4f2`.
+
+Experiment 031 tested the recovered readback command only at the already
+observed `0x12b` allocation, for exactly four dwords. Both resource and
+readback commands were consumed, but the six-dword readback response
+descriptor remained untouched through the deadline. This is a bounded
+negative result: `0x000c0004` is not a standalone decoded-memory oracle after
+isolated resource acceptance. The complete plug-in `Process` transaction or
+activation state is a demonstrated prerequisite candidate.
+
+Experiment 032 then accepted the complete first 13-resource RealVerb pass,
+including all three objects split across two DMA descriptors, before issuing
+the same bounded readback. The readback command was consumed without a
+response. This rules out incomplete resource loading as the prerequisite and
+makes the allocation, memory-spec update, `Process`, or activation metadata the
+next justified capture boundary.
+
+Experiments 033 and 034 then exposed an operational constraint. All 13 exact
+pool-zero unload commands were consumed, but neither the first resource reload
+nor query 026 received a response. Per-DSP resets preserved ready state but did
+not restore the runtime service. The planned 33 zero-resource commands and
+65-dword memory-spec update were therefore not submitted. Fresh official
+plug-in activation is required before that allocation phase can be tested.

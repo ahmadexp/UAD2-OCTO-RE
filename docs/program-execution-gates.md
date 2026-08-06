@@ -14,7 +14,7 @@ exact OCTO target:
 | executable machine family and package | `ADSP-21469 KBCZ-00` optically confirmed on all eight DSPs; speed ordering suffix not visible |
 | code and data address units | data-sheet map known; loader interpretation unknown |
 | segment records and alignment | unknown |
-| relocation records and arithmetic | unknown |
+| relocation records and arithmetic | outer host memory-spec arithmetic recovered as `mapped resource + low24 offset`; inner opaque-core relocation format unknown |
 | entry point and call ABI | unknown |
 | runtime-reserved ranges | four outer pools observed; allocations inside an opaque program unknown |
 | stack, interrupt, and circular-buffer reservations | unknown |
@@ -41,6 +41,26 @@ A load is successful only if all of the following are captured:
 
 An advanced ring index without a response and bounded output is not a program
 load.
+
+Experiment 031 applies the same rule to the statically recovered resource
+readback command. `0x000c0004` was consumed after exact `0x12b` acceptance, but
+its response descriptor was not consumed and its six-word canary remained
+unchanged. The official driver queues readback only as part of `Process`, so
+standalone readback is not an execution or decoded-memory milestone.
+
+Experiment 032 removes incomplete resource loading as the explanation. All 13
+resources in the first RealVerb pass returned exact, correlated success
+responses, including all three two-descriptor resources. The same fixed
+readback was then consumed without a response. This narrows the missing
+prerequisite to plug-in allocation, address patching, process submission, or
+activation state. It does not relax any heartbeat or output requirement.
+
+Experiments 033 and 034 add a recovery gate. The exact 13 pool-zero unload
+commands were consumed, but query 026 and the first resource response remained
+absent even after the proven per-DSP reset sequence. The planned 33
+private-resource zero commands and exact 65-dword memory-spec update were not
+submitted. Fresh official activation is required before that gate can be
+tested.
 
 ## Linux API progression
 

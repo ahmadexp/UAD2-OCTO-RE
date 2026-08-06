@@ -150,6 +150,22 @@ Experiment 028 added a Linux-controlled success for the exact first RealVerb
 object, resource `0x12b` at offset `0xe0000`. Experiment 030 repeated that
 exact success independently on all eight DSPs.
 
+Experiment 032 replayed the complete first RealVerb pass under Linux. All 13
+resources returned the exact intermediate-success form, including resources
+`0xf9`, `0xbf`, and `0xd1`, whose command targets each required two page-bounded
+DMA descriptors. The response for every object echoed both its resource ID
+and envelope command. Completion times ranged from 1 to 5 ms. This proves the
+full captured resource sequence is accepted under the resident framework; it
+does not prove allocation finalization, activation, or execution.
+
+The complete pass also revealed that device and transport reset are not an
+application-level unload oracle. A later `0x12b` reload and query 026 were
+consumed without responses. The exact 13-command pool-zero cleanup list was
+then consumed, but a second reload still received no response. The public
+driver confirms each cleanup as `0x00030002`, resource ID, zero, and zero, yet
+consumption does not prove the DSP-side registry was cleared. A fresh official
+activation is now required before replaying allocation metadata.
+
 The offline tool can construct the exact envelope when a known allocation
 offset and pool direction are supplied:
 
@@ -181,6 +197,29 @@ program labels, module-activation words, and SRAM addresses came from separate
 runtime captures, not from an inner-resource decoder. Finally, the operation-13
 wait-loop property call is unsupported by the public PCIe property dispatcher
 and sends no DSP command. It cannot be repurposed as a decoded-memory readback.
+
+There is a genuine resource-readback builder, but it is inside
+`CPluginInstance::Process`, not the property path. It emits `0x000c0004`, a
+mapped resource address, a requested dword count, and the original resource
+spec, then allocates a response of `requested_dwords + 2`. Experiment 031
+queued the fixed four-dword form immediately after exact `0x12b` acceptance.
+The command was consumed, but its response descriptor and canary-filled target
+were unchanged. The readback therefore requires process or activation context
+that isolated resource acceptance does not establish.
+
+Experiment 032 repeated the same readback only after all 13 RealVerb resources
+had returned exact successes. Its command was again consumed while its
+response descriptor and six canary dwords remained unchanged. Incomplete
+resource loading is therefore ruled out as the missing prerequisite.
+
+The same driver recovers one genuine outer relocation layer. Native plug-in
+allocation metadata stores 16-byte memory specs at offset `0x188` and 8-byte
+readback specs at offset `0x98c`. Command class `0x00150000` splits each memory
+spec into an 8-bit resource selector and a 24-bit offset, resolves the selected
+mapped resource address, and pairs it with a mapped private-resource
+destination. This proves host runtime address patching, but it does not reveal
+the authenticated inner body's segments, DSP-side relocations, reservations,
+or entry point.
 
 This rules out recovering segments, relocations, or entry points by calling an
 unnoticed host parser. The remaining evidence path is the DSP-side consumer:

@@ -25,9 +25,10 @@
 #define PAGE_SIZE_4K 4096
 #define DSP_COUNT 8
 #define RING_PAGE_COUNT 64
-#define PAGE_COUNT 66
+#define PAGE_COUNT 67
 #define RESPONSE_PAGE 64
 #define RESOURCE_PAGE 65
+#define READBACK_PAGE 66
 #define DMA_CONTROL 0x2200
 #define INTERRUPT_ENABLE 0x2204
 #define INTERRUPT_ACK 0x2208
@@ -56,6 +57,10 @@
 #define BILL_RESOURCE_ID 0x0000012b
 #define BILL_BODY_BYTES 432
 #define BILL_REPLACEMENT_DWORDS 96
+#define READBACK_COMMAND 0x000c0004
+#define READBACK_DWORDS 4
+#define READBACK_RESPONSE_WORDS (READBACK_DWORDS + 2)
+#define READBACK_RESOURCE_SPEC 0x00000000
 
 static const uint32_t dsp_banks[DSP_COUNT] = {
 	0x2000, 0x2080, 0x2100, 0x2180,
@@ -171,11 +176,13 @@ int main(int argc, char **argv)
 	struct timespec delay = { .tv_sec = 0, .tv_nsec = 1000000 };
 	uint32_t indexes[DSP_COUNT][2] = {{0}}, raw;
 	uint32_t response[QUERY_RESPONSE_WORDS] = {0};
+	uint32_t readback_response[READBACK_RESPONSE_WORDS] = {0};
 	uint32_t selected_command = QUERY_COMMAND;
 	uint32_t selected_header = QUERY_RESPONSE_HEADER;
 	unsigned int selected_response_words = QUERY_RESPONSE_WORDS;
 	uint32_t command_position = 0, response_position = 0;
 	uint32_t *command_entry = NULL, *response_entry = NULL, *response_buffer;
+	uint32_t *readback_buffer = NULL;
 	unsigned char *memory = MAP_FAILED, *snapshot = NULL;
 	void *bar = MAP_FAILED;
 	int container = -1, group = -1, device = -1;
@@ -189,6 +196,9 @@ int main(int argc, char **argv)
 	bool bill_probe = false;
 	bool bill_mutation = false;
 	bool bill_isolation = false;
+	bool readback_probe = false;
+	bool readback_observed = false;
+	bool iommu_unmap_succeeded = false;
 	unsigned long bill_mutation_offset = 0;
 	unsigned int target_dsp = 0;
 	bool non_target_indices_unchanged = false;
@@ -253,8 +263,16 @@ int main(int argc, char **argv)
 		}
 		target_dsp = (unsigned int)parsed;
 	}
+	else if (argc == 3 &&
+		 strcmp(argv[1], "--post-official-bill-readback") == 0) {
+		post_official = true;
+		bill_probe = true;
+		readback_probe = true;
+		selected_header = BILL_RESPONSE_HEADER;
+		selected_response_words = 4;
+	}
 	else if (argc != 1) {
-		fprintf(stderr, "usage: vfio_full_query [--connect|--connect-query-027|--post-official|--post-official-bill exact-command-target|--post-official-bill-flip exact-command-target {28|75|76|123|124|459}|--post-official-bill-dsp exact-command-target {0..7}]\n");
+		fprintf(stderr, "usage: vfio_full_query [--connect|--connect-query-027|--post-official|--post-official-bill exact-command-target|--post-official-bill-flip exact-command-target {28|75|76|123|124|459}|--post-official-bill-dsp exact-command-target {0..7}|--post-official-bill-readback exact-command-target]\n");
 		return EXIT_FAILURE;
 	}
 	if (sysconf(_SC_PAGESIZE) != PAGE_SIZE_4K) {
@@ -292,6 +310,8 @@ int main(int argc, char **argv)
 	memset(memory + RESPONSE_PAGE * PAGE_SIZE_4K,
 	       bill_probe ? 0 : 0xa5, PAGE_SIZE_4K);
 	response_buffer = (uint32_t *)(memory + RESPONSE_PAGE * PAGE_SIZE_4K);
+	memset(memory + READBACK_PAGE * PAGE_SIZE_4K, 0xa5, PAGE_SIZE_4K);
+	readback_buffer = (uint32_t *)(memory + READBACK_PAGE * PAGE_SIZE_4K);
 	if (bill_probe) {
 		struct stat resource_stat;
 		uint32_t *resource = (uint32_t *)(memory +
@@ -411,6 +431,22 @@ int main(int argc, char **argv)
 	response_entry[2] = (uint32_t)(TEST_IOVA + RESPONSE_PAGE * (uint64_t)PAGE_SIZE_4K);
 	response_entry[3] = (uint32_t)((TEST_IOVA +
 		RESPONSE_PAGE * (uint64_t)PAGE_SIZE_4K) >> 32);
+	if (readback_probe) {
+		uint32_t *readback_command = ring_entry(memory, target_dsp, 0,
+			(query_command_index + 1) % 1024);
+		uint32_t *readback_descriptor = ring_entry(memory, target_dsp, 1,
+			(query_response_index + 1) % 1024);
+		uint64_t readback_iova = TEST_IOVA +
+			READBACK_PAGE * (uint64_t)PAGE_SIZE_4K;
+
+		readback_command[0] = READBACK_COMMAND;
+		readback_command[1] = BILL_TARGET_OFFSET;
+		readback_command[2] = READBACK_DWORDS;
+		readback_command[3] = READBACK_RESOURCE_SPEC;
+		readback_descriptor[0] = 0x80000000U | READBACK_RESPONSE_WORDS;
+		readback_descriptor[2] = (uint32_t)readback_iova;
+		readback_descriptor[3] = (uint32_t)(readback_iova >> 32);
+	}
 	snapshot = malloc(memory_size);
 	if (!snapshot) {
 		perror("experiment-014: allocate snapshot");
@@ -464,13 +500,13 @@ int main(int argc, char **argv)
 			goto cleanup;
 	}
 
-	response_position = (query_response_index + 1) % 1024;
+	response_position = (query_response_index + (readback_probe ? 2 : 1)) % 1024;
 	write32(bar, dsp_banks[target_dsp] + 0x40 + 0x24, response_position);
 	write32(bar, dsp_banks[target_dsp] + 0x40 + 0x20, response_position);
 	interrupt_shadow |= 2U << (target_dsp * 4);
 	response_interrupt_shadow = interrupt_shadow;
 	write32(bar, INTERRUPT_ENABLE, response_interrupt_shadow);
-	command_position = (query_command_index + 1) % 1024;
+	command_position = (query_command_index + (readback_probe ? 2 : 1)) % 1024;
 	write32(bar, dsp_banks[target_dsp] + 0x24, command_position);
 	write32(bar, dsp_banks[target_dsp] + 0x20, command_position);
 	interrupt_shadow |= 1U << (target_dsp * 4);
@@ -486,13 +522,17 @@ int main(int argc, char **argv)
 		__sync_synchronize();
 		if (command_read == command_position &&
 		    response_read == response_position &&
-		    response_buffer[0] != (bill_probe ? 0 : 0xa5a5a5a5))
+		    response_buffer[0] != (bill_probe ? 0 : 0xa5a5a5a5) &&
+		    (!readback_probe || readback_buffer[0] != 0xa5a5a5a5))
 			break;
 		nanosleep(&delay, NULL);
 	}
 	__sync_synchronize();
 	for (word = 0; word < selected_response_words; word++)
 		response[word] = response_buffer[word];
+	if (readback_probe)
+		for (word = 0; word < READBACK_RESPONSE_WORDS; word++)
+			readback_response[word] = readback_buffer[word];
 	command_consumed = read32(bar, dsp_banks[target_dsp] + 0x28) ==
 		command_position;
 	response_consumed = read32(bar,
@@ -515,16 +555,25 @@ int main(int argc, char **argv)
 	}
 	header_matches = response[0] == selected_header;
 	bill_accepted = bill_probe && header_matches && response[1] == 0;
+	readback_observed = readback_probe &&
+		readback_response[0] != 0xa5a5a5a5;
 	ready_after = all_ready(bar);
 	memory_bounded = memcmp(memory, snapshot, RESPONSE_PAGE * PAGE_SIZE_4K) == 0 &&
 		memcmp(memory + RESPONSE_PAGE * PAGE_SIZE_4K + selected_response_words * 4,
 		       snapshot + RESPONSE_PAGE * PAGE_SIZE_4K + selected_response_words * 4,
 		       PAGE_SIZE_4K - selected_response_words * 4) == 0 &&
 		memcmp(memory + RESOURCE_PAGE * PAGE_SIZE_4K,
-		       snapshot + RESOURCE_PAGE * PAGE_SIZE_4K, PAGE_SIZE_4K) == 0;
+		       snapshot + RESOURCE_PAGE * PAGE_SIZE_4K, PAGE_SIZE_4K) == 0 &&
+		memcmp(memory + READBACK_PAGE * PAGE_SIZE_4K +
+		       (readback_probe ? READBACK_RESPONSE_WORDS * 4 : 0),
+		       snapshot + READBACK_PAGE * PAGE_SIZE_4K +
+		       (readback_probe ? READBACK_RESPONSE_WORDS * 4 : 0),
+		       PAGE_SIZE_4K -
+		       (readback_probe ? READBACK_RESPONSE_WORDS * 4 : 0)) == 0;
 	if (!interrupted && command_consumed && response_consumed && header_matches &&
 	    ready_after && memory_bounded &&
 	    (!bill_probe || (bill_mutation ? !bill_accepted : bill_accepted)) &&
+	    (!readback_probe || readback_observed) &&
 	    non_target_indices_unchanged)
 		result = EXIT_SUCCESS;
 
@@ -547,12 +596,23 @@ cleanup:
 		if (!reset_recovered)
 			result = EXIT_FAILURE;
 	}
+	if (dma_mapped) {
+		dma_unmap.iova = TEST_IOVA;
+		dma_unmap.size = memory_size;
+		if (ioctl(container, VFIO_IOMMU_UNMAP_DMA, &dma_unmap) == 0 &&
+		    dma_unmap.size == memory_size)
+			iommu_unmap_succeeded = true;
+		else
+			result = EXIT_FAILURE;
+		dma_mapped = false;
+	}
 
 	printf("{\n");
 	printf("  \"experiment\": \"%s\",\n",
 	       selected_command == SEQUENCE_COMMAND ? "016-connect-then-query-027" :
 	       bill_mutation ? "029-post-official-bill-integrity" :
 	       bill_isolation ? "030-eight-dsp-bill-isolation" :
+	       readback_probe ? "031-post-load-bounded-readback" :
 	       bill_probe ? "028-post-official-bill-12b" :
 	       post_official ? "027-post-official-query-026" :
 	       connect_first ? "015-connect-then-query-026" :
@@ -569,6 +629,12 @@ cleanup:
 		       bill_mutation_offset);
 	printf("  \"bill_accepted\": %s,\n",
 	       bill_accepted ? "true" : "false");
+	printf("  \"readback_requested\": %s,\n",
+	       readback_probe ? "true" : "false");
+	printf("  \"readback_address_dwords\": \"0x%08x\",\n",
+	       readback_probe ? BILL_TARGET_OFFSET : 0);
+	printf("  \"readback_observed\": %s,\n",
+	       readback_observed ? "true" : "false");
 	printf("  \"integrity_rejection_observed\": %s,\n",
 	       bill_mutation && header_matches && !bill_accepted ? "true" : "false");
 	printf("  \"non_target_ring_indices_unchanged\": %s,\n",
@@ -598,11 +664,18 @@ cleanup:
 		printf("\"0x%08x\"%s", response[word],
 		       word + 1 == selected_response_words ? "" : ", ");
 	printf("],\n");
+	printf("  \"readback_response_words\": [");
+	for (word = 0; word < (readback_probe ? READBACK_RESPONSE_WORDS : 0); word++)
+		printf("\"0x%08x\"%s", readback_response[word],
+		       word + 1 == READBACK_RESPONSE_WORDS ? "" : ", ");
+	printf("],\n");
 	printf("  \"reply_header_matches\": %s,\n", header_matches ? "true" : "false");
 	printf("  \"writes_confined_to_response_prefix\": %s,\n", memory_bounded ? "true" : "false");
 	printf("  \"all_dsps_ready\": %s,\n", ready_after ? "true" : "false");
 	printf("  \"explicit_restore_succeeded\": %s,\n", restored ? "true" : "false");
 	printf("  \"vfio_reset_recovered\": %s,\n", reset_recovered ? "true" : "false");
+	printf("  \"iommu_unmap_succeeded\": %s,\n",
+	       iommu_unmap_succeeded ? "true" : "false");
 	printf("  \"success\": %s\n", result == EXIT_SUCCESS ? "true" : "false");
 	printf("}\n");
 
@@ -610,13 +683,6 @@ cleanup:
 		munmap(bar, BAR0_SIZE);
 	if (device >= 0)
 		close(device);
-	if (dma_mapped) {
-		dma_unmap.iova = TEST_IOVA;
-		dma_unmap.size = memory_size;
-		if (ioctl(container, VFIO_IOMMU_UNMAP_DMA, &dma_unmap) < 0 ||
-		    dma_unmap.size != memory_size)
-			result = EXIT_FAILURE;
-	}
 	if (memory != MAP_FAILED) {
 		munlock(memory, memory_size);
 		munmap(memory, memory_size);

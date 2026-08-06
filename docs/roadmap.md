@@ -39,12 +39,16 @@ buffers, report completion, and recover from failure.
 - [x] Recover its two-dword transmit envelope and low/high free-list allocator.
 - [x] Recover 4 KiB copy limits, bounded completion waits, both accepted
       response forms, and the exact final status mapping.
+- [x] Recover the fixed host allocation record, 16-byte runtime memory specs,
+      mapped-address patch command, and 8-byte resource readback specs.
 - [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
       DSPs with a read-only VFIO snapshot.
 - [x] Observe exact form-zero resource successes on DSP0, including the first
       RealVerb object submitted from Linux.
 - [x] Repeat exact authenticated-resource acceptance independently across all
       eight DSPs with non-target ring-index isolation.
+- [x] Replay the complete 13-resource RealVerb pass with exact correlated
+      completions, page-bounded DMA, canaries, and reset recovery.
 - [ ] Decode opaque payloads into segments and relocations, if those concepts
       are present in the DSP-side format.
 
@@ -60,19 +64,27 @@ Experiment 025 then activated the official plug-in path. Experiments 026
 through 030 named the authorization states, isolated `0x12b` as the first zero
 target in the invasive capture, safely bridged the resident framework to
 Linux, accepted that exact object, proved whole-body integrity enforcement,
-and repeated acceptance across all eight DSPs. A module entry point and
-bounded program output are still not available.
+and repeated acceptance across all eight DSPs. Experiment 032 then accepted
+all 13 resources in the first RealVerb pass, including the three split across
+two DMA descriptors. A module entry point and bounded program output are still
+not available.
 
 ## Current blockers
 
 | Goal | Blocking evidence | Required evidence before implementation |
 |---|---|---|
-| Valid response semantics | Closed for query 026, authorization, and exact Bill success. The earlier first zero target is identified as `0x12b` and succeeds under the bounded Linux path | No response-semantic blocker remains for a first program |
+| Valid response semantics | Closed for query 026, authorization, exact Bill success, and all 13 resources in RealVerb's first pass | No response-semantic blocker remains for resource loading |
 | Payload authentication and transform | Single-bit changes in the prefix and core are rejected with structured device statuses. The algorithm and cleartext remain opaque | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
-| Relocations and runtime reservations | Pool bounds and live offsets `0xe023a` and `0xe02fa` are known, but no decoded segment, entry-point, or relocation record is visible | Decode one accepted target-compatible resource and correlate its inner accesses |
-| Harmless DSP0 program | Exact authenticated resource loading succeeds, but no proven entry ABI or output exists and arbitrary modifications are rejected | Derive a target-specific clear program format and lawful authentication path |
+| Relocations and runtime reservations | Pool bounds and live offsets are known. The outer `0x00150000` runtime memory-spec patch resolves a selected mapped resource plus a low-24-bit offset into each private allocation. No decoded inner segment or entry-point record is visible | Decode one accepted target-compatible resource and correlate its inner accesses; do not conflate host memory specs with the opaque core format |
+| Harmless DSP0 program | The complete 13-resource pass succeeds, but no proven entry ABI or output exists and arbitrary modifications are rejected. The fixed `0x000c0004` read remains unanswered even after the complete pass | Capture or reconstruct the allocation and complete plug-in process transaction, then derive a target-specific clear program format and lawful authentication path |
 | General-purpose job API | Resource completions are real, but program handles and buffer ownership would still be guesses | One complete program load, bounded buffer exchange, and completion response |
 | Eight-DSP program isolation | Authenticated loader isolation is proven on all eight engines, but no entry point ran | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
+
+The live prerequisite for the next allocation experiment is now explicit. A
+complete 13-resource pass succeeded once, but the runtime service stopped
+responding afterward. Exact unload commands and isolated resets did not restore
+query 026. Fresh official plug-in activation must precede any retry of the 33
+private-resource zero commands and 65-dword memory-spec update.
 
 The transport module remains fail-closed for program, buffer, submit, and wait
 operations until these evidence gates are met.

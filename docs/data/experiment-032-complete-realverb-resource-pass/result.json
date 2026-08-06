@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "experiment": "032-complete-realverb-resource-pass",
+  "date": "2026-08-06",
+  "target_dsp": 0,
+  "resource_count": 13,
+  "accepted_count": 13,
+  "all_resources_accepted": true,
+  "resources": [
+    {"id": "0x0000012b", "allocation": "0x000e0000", "command": "0x00010073", "bytes": 460, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x0000012b", "0x00010073"], "accepted": true},
+    {"id": "0x000000eb", "allocation": "0x000e0040", "command": "0x000100b5", "bytes": 724, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x000000eb", "0x000100b5"], "accepted": true},
+    {"id": "0x000000c1", "allocation": "0x000e00ac", "command": "0x0001009c", "bytes": 624, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x000000c1", "0x0001009c"], "accepted": true},
+    {"id": "0x000000a5", "allocation": "0x000e010a", "command": "0x000101e7", "bytes": 1948, "descriptors": 1, "polls_ms": 2, "response": ["0x80070004", "0x00000000", "0x000000a5", "0x000101e7"], "accepted": true},
+    {"id": "0x00000120", "allocation": "0x000e023a", "command": "0x00010099", "bytes": 612, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x00000120", "0x00010099"], "accepted": true},
+    {"id": "0x000000bd", "allocation": "0x000e0296", "command": "0x00010057", "bytes": 348, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x000000bd", "0x00010057"], "accepted": true},
+    {"id": "0x0000011f", "allocation": "0x000e02c6", "command": "0x0001005d", "bytes": 372, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x0000011f", "0x0001005d"], "accepted": true},
+    {"id": "0x000000d0", "allocation": "0x000e02fa", "command": "0x0001006c", "bytes": 432, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x000000d0", "0x0001006c"], "accepted": true},
+    {"id": "0x000000f9", "allocation": "0x000e0338", "command": "0x0001055e", "bytes": 5496, "descriptors": 2, "polls_ms": 5, "response": ["0x80070004", "0x00000000", "0x000000f9", "0x0001055e"], "accepted": true},
+    {"id": "0x000000bf", "allocation": "0x000e06c2", "command": "0x00010600", "bytes": 6144, "descriptors": 2, "polls_ms": 5, "response": ["0x80070004", "0x00000000", "0x000000bf", "0x00010600"], "accepted": true},
+    {"id": "0x0000011e", "allocation": "0x000e0ab8", "command": "0x0001003f", "bytes": 252, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x0000011e", "0x0001003f"], "accepted": true},
+    {"id": "0x0000011d", "allocation": "0x000e0ad8", "command": "0x00010081", "bytes": 516, "descriptors": 1, "polls_ms": 1, "response": ["0x80070004", "0x00000000", "0x0000011d", "0x00010081"], "accepted": true},
+    {"id": "0x000000d1", "allocation": "0x000e0b24", "command": "0x000104a8", "bytes": 4768, "descriptors": 2, "polls_ms": 4, "response": ["0x80070004", "0x00000000", "0x000000d1", "0x000104a8"], "accepted": true}
+  ],
+  "readback": {
+    "requested_after_complete_pass": true,
+    "address_dwords": "0x000e0000",
+    "requested_dwords": 4,
+    "polls_ms": 6000,
+    "command_consumed": true,
+    "response_consumed": false,
+    "observed": false,
+    "response": ["0xa5a5a5a5", "0xa5a5a5a5", "0xa5a5a5a5", "0xa5a5a5a5", "0xa5a5a5a5", "0xa5a5a5a5"]
+  },
+  "non_target_ring_indices_unchanged": true,
+  "writes_confined_to_response_prefixes": true,
+  "all_dsps_ready": true,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_recovered": true,
+  "final_endpoint": {
+    "driver": "unbound",
+    "enable": 0,
+    "pci_command": "0x0002",
+    "iommu_group": 16
+  },
+  "subsequent_runtime_service_check": {
+    "query_026_responded": false,
+    "per_dsp_reset_restored_query_026": false,
+    "official_reactivation_required": true
+  },
+  "success": true
+}
