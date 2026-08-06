@@ -1252,5 +1252,253 @@ class ComputeDriverContractTests(unittest.TestCase):
         self.assertIn('[ "$1" = "--process-stream-dsp" ]', wrapper)
 
 
+class SharcImageInspectorTests(unittest.TestCase):
+    @staticmethod
+    def minimal_sharc_elf():
+        names = b"\0.shstrtab\0"
+        section_offset = 52
+        names_offset = section_offset + 2 * 40
+        ident = b"\x7fELF" + bytes([1, 1, 1]) + bytes(9)
+        header = struct.pack(
+            "<16sHHIIIIIHHHHHH",
+            ident,
+            2,
+            0x85,
+            1,
+            0,
+            0,
+            section_offset,
+            0,
+            52,
+            0,
+            0,
+            40,
+            2,
+            1,
+        )
+        null_section = bytes(40)
+        name_section = struct.pack(
+            "<IIIIIIIIII", 1, 3, 0, 0, names_offset, len(names), 0, 0, 1, 0
+        )
+        return header + null_section + name_section + names
+
+    def test_minimal_sharc_elf_is_recognized_and_contract_is_strict(self):
+        module = load_tool("inspect_sharc_image")
+        result = module.inspect_elf(self.minimal_sharc_elf())
+
+        self.assertEqual(result["format"], "elf32-sharc")
+        self.assertEqual(result["elf_type"], "executable")
+        self.assertEqual(result["relocation_count"], 0)
+        module.validate_contract(result, require_no_relocations=True)
+        with self.assertRaisesRegex(module.ImageError, "required global function"):
+            module.validate_contract(result, require_symbol="_uad_affine_entry")
+
+    def test_non_sharc_machine_is_rejected(self):
+        module = load_tool("inspect_sharc_image")
+        image = bytearray(self.minimal_sharc_elf())
+        struct.pack_into("<H", image, 18, 3)
+        with self.assertRaisesRegex(module.ImageError, "not SHARC"):
+            module.inspect_elf(bytes(image))
+
+    def test_flat_v6_sharc_module_layout_is_decoded(self):
+        module = load_tool("inspect_sharc_image")
+        section_name = b".text\0"
+        section_table = 56
+        relocation_offset = section_table + 28
+        name_offset = relocation_offset + 12
+        content_offset = name_offset + len(section_name)
+        header = (
+            b"bFLT"
+            + struct.pack(
+                ">13I",
+                6,
+                2,
+                section_table,
+                1,
+                relocation_offset,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            )
+        )
+        section = struct.pack(
+            ">7I", name_offset, content_offset, 6, 4, 6, 1, 0
+        )
+        relocation = struct.pack(">III", 0, 0, 0x00000100)
+        result = module.inspect_dlm(
+            header + section + relocation + section_name + bytes(6)
+        )
+
+        self.assertEqual(result["format"], "adi-flat-v6-sharc")
+        self.assertEqual(result["byte_order"], "big")
+        self.assertEqual(result["sections"][0]["name"], ".text")
+        self.assertTrue(result["sections"][0]["code"])
+        self.assertEqual(result["relocation_count"], 1)
+        self.assertEqual(
+            result["relocation_counts_by_dynamic_type"], {"0x01": 1}
+        )
+        module.validate_contract(result, max_code_bytes=6)
+        with self.assertRaisesRegex(module.ImageError, "export string and symbol table"):
+            module.validate_contract(
+                result, require_export_name="_uad_affine_entry"
+            )
+
+    def test_flat_v6_named_export_is_decoded_and_required(self):
+        module = load_tool("inspect_sharc_image")
+        section_table = 56
+        section_count = 3
+        names_offset = section_table + section_count * 28
+        names = b".text\0.expstr\0.expsym\0"
+        text_offset = names_offset + len(names)
+        export_name = b"_uad_affine_entry\0"
+        export_strings = b"".join(b"\0\0\0" + bytes([value]) for value in export_name)
+        string_offset = text_offset + 6
+        symbol_offset = string_offset + len(export_strings)
+        header = (
+            b"bFLT"
+            + struct.pack(
+                ">13I",
+                6,
+                2,
+                section_table,
+                section_count,
+                names_offset,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            )
+        )
+        sections = b"".join(
+            [
+                struct.pack(
+                    ">7I", names_offset, text_offset, 6, 4, 6, 1, 0
+                ),
+                struct.pack(
+                    ">7I",
+                    names_offset + len(b".text\0"),
+                    string_offset,
+                    len(export_strings),
+                    1,
+                    4,
+                    0,
+                    0,
+                ),
+                struct.pack(
+                    ">7I",
+                    names_offset + len(b".text\0.expstr\0"),
+                    symbol_offset,
+                    8,
+                    1,
+                    4,
+                    0,
+                    0,
+                ),
+            ]
+        )
+        result = module.inspect_dlm(
+            header
+            + sections
+            + names
+            + bytes(6)
+            + export_strings
+            + bytes(8)
+        )
+
+        self.assertEqual(result["exported_names"], ["_uad_affine_entry"])
+        module.validate_contract(
+            result, require_export_name="_uad_affine_entry"
+        )
+        with self.assertRaisesRegex(module.ImageError, "required DLM export"):
+            module.validate_contract(result, require_export_name="_not_present")
+
+    def test_standard_loader_stream_is_parsed_sequentially(self):
+        module = load_tool("inspect_sharc_image")
+        stream = (
+            struct.pack(">III", 2, 5, 0x8C000)
+            + struct.pack(">III", 5, 2, 0x8C005)
+            + bytes(12)
+            + struct.pack(">III", 0, 0, 0)
+        )
+        result = module.inspect_ldr(stream)
+
+        self.assertEqual(result["byte_order"], "big")
+        self.assertEqual(
+            [block["tag"] for block in result["blocks"]],
+            ["ZERO_L48", "INIT_L48", "FINAL_INIT"],
+        )
+        self.assertEqual(result["blocks"][1]["payload_bytes"], 12)
+
+
+class SharcMemoryAliasTests(unittest.TestCase):
+    def test_realverb_private_resources_one_and_two_are_exact_pm48_spans(self):
+        module = load_tool("sharc_memory_alias")
+        upper = module.dm32_span_to_pm48(0x9CF74, 0x96)
+        lower = module.dm32_span_to_pm48(0x9CEDE, 0x96)
+
+        self.assertTrue(upper["whole_pm48_span"])
+        self.assertTrue(lower["whole_pm48_span"])
+        self.assertEqual(upper["pm48_start"], "0x000934f8")
+        self.assertEqual(lower["pm48_start"], "0x00093494")
+        self.assertEqual(upper["pm48_words"], 100)
+        self.assertEqual(lower["pm48_words"], 100)
+        self.assertEqual(lower["pm48_end_inclusive"], "0x000934f7")
+
+    def test_unaligned_data_span_is_not_mislabeled_as_code(self):
+        module = load_tool("sharc_memory_alias")
+        result = module.dm32_span_to_pm48(0x9CEA6, 0x38)
+        self.assertFalse(result["whole_pm48_span"])
+        self.assertNotIn("pm48_words", result)
+
+
+class AffineReferenceTests(unittest.TestCase):
+    def test_separate_binary32_rounding_and_bits_are_stable(self):
+        module = load_tool("affine_reference")
+        result = module.generate([1.0, -1.0, 1.0 / 3.0], 0.625, -0.09375)
+
+        self.assertEqual(result["scale"]["bits"], "0x3f200000")
+        self.assertEqual(result["bias"]["bits"], "0xbdc00000")
+        self.assertEqual(
+            [item["bits"] for item in result["expected_output"]],
+            ["0x3f080000", "0xbf380000", "0x3deaaaac"],
+        )
+
+    def test_nonfinite_and_oversized_vectors_are_rejected(self):
+        module = load_tool("affine_reference")
+        with self.assertRaisesRegex(ValueError, "finite"):
+            module.generate([float("nan")], 1.0, 0.0)
+        with self.assertRaisesRegex(ValueError, "1..64"):
+            module.generate([0.0] * 65, 1.0, 0.0)
+
+    def test_committed_canonical_vector_matches_the_oracle(self):
+        module = load_tool("affine_reference")
+        committed = __import__("json").loads(
+            (ROOT / "kernels" / "affine" / "canonical-vector.json").read_text()
+        )
+        generated = module.generate(
+            list(module.CANONICAL_INPUT),
+            module.CANONICAL_SCALE,
+            module.CANONICAL_BIAS,
+        )
+
+        self.assertEqual(
+            committed["input_bits"],
+            [item["bits"] for item in generated["input"]],
+        )
+        self.assertEqual(
+            committed["expected_output_bits"],
+            [item["bits"] for item in generated["expected_output"]],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

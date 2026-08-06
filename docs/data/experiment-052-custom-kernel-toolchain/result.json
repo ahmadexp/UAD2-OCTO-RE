@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "date": "2026-08-06",
+  "toolchain": {
+    "product": "Analog Devices CrossCore Embedded Studio 2.12.1",
+    "compiler": "SHARC C/C++ Compiler 8.16.1.0",
+    "loader": "6.3.7.1",
+    "installer_sha256": "5ddace48646282549e0d2578ff28bd0b9ced9ab56ad5054b965ddc48dbec6870",
+    "license_state": "installed but not activated",
+    "license_bypass_attempted": false
+  },
+  "clear_reference": {
+    "processor": "ADSP-21469",
+    "dxe_sha256": "3c2787892402c9250f2f8aa28c1b32a961cfeee428ebd91251911ff41d7743da",
+    "dxe_bytes": 3112,
+    "dxe_load_address": "0x0008c000",
+    "dxe_load_bytes": 1296,
+    "dxe_relocations": 0,
+    "no_kernel_ldr_sha256": "ea0935d43e4b88adf3542c732d096ed28f211a054bbc3c51eb1838d91dbc69df",
+    "no_kernel_ldr_bytes": 1308,
+    "ldr_blocks": [
+      {"tag": "ZERO_L48", "count": 5, "target": "0x0008c000"},
+      {"tag": "INIT_L48", "count": 211, "target": "0x0008c005", "payload_bytes": 1266},
+      {"tag": "FINAL_INIT", "count": 0, "target": "0x00000000"}
+    ]
+  },
+  "dynamic_module_reference": {
+    "magic": "bFLT",
+    "revision": 6,
+    "family": 2,
+    "family_name": "SHARC",
+    "header_bytes": 56,
+    "section_record_bytes": 28,
+    "relocation_record_bytes": 12,
+    "export_sections": [".expstr", ".expsym"],
+    "dynamic_relocation_type_range": [1, 58],
+    "libdyn_header_sha256": "474515d32783af1d35396799a6c8ea62124cea21a5a3b83b93716b996b2a38d1",
+    "dynreloc_header_sha256": "6e53347d752a66a0eb0a64435cdf48ce4071a72fb7aaa5a98d1a7d4aad308e35",
+    "dynmacros_header_sha256": "e701ca7841bcb9d9001fba10c9cf2a2742afbb90b0aab61ac838fa1df8ebcd6a"
+  },
+  "realverb_private_aliases": [
+    {
+      "private_index": 2,
+      "dm32_start": "0x0009cede",
+      "dm32_dwords": 150,
+      "pm48_start": "0x00093494",
+      "pm48_words": 100,
+      "pm48_end_inclusive": "0x000934f7"
+    },
+    {
+      "private_index": 1,
+      "dm32_start": "0x0009cf74",
+      "dm32_dwords": 150,
+      "pm48_start": "0x000934f8",
+      "pm48_words": 100,
+      "pm48_end_inclusive": "0x0009355b"
+    }
+  ],
+  "claims": {
+    "clear_sharc_executable_format_recovered": true,
+    "generic_sharc_dynamic_relocation_format_recovered": true,
+    "user_affine_source_and_build_pipeline_implemented": true,
+    "user_affine_binary_built": false,
+    "uad_inner_bill_equals_flat_v6": "unproven",
+    "uad_accepted_object_adapter_recovered": false,
+    "uad_entry_call_adapter_recovered": false,
+    "hardware_user_kernel_executed": false
+  }
+}

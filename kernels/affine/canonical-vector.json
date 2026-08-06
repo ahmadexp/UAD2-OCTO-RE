@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "operation": "y = round_binary32(round_binary32(x * scale) + bias)",
+  "frames": 10,
+  "scale": {"value": 0.625, "bits": "0x3f200000"},
+  "bias": {"value": -0.09375, "bits": "0xbdc00000"},
+  "input_bits": [
+    "0xbf800000", "0xbf400000", "0xbf000000", "0xbe000000",
+    "0x00000000", "0x3e000000", "0x3eaaaaab", "0x3f000000",
+    "0x3f400000", "0x3f800000"
+  ],
+  "expected_output_bits": [
+    "0xbf380000", "0xbf100000", "0xbed00000", "0xbe300000",
+    "0xbdc00000", "0xbc800000", "0x3deaaaac", "0x3e600000",
+    "0x3ec00000", "0x3f080000"
+  ],
+  "guard_before": "0x5a5aa5a5",
+  "guard_after": "0xa5a55a5a"
+}

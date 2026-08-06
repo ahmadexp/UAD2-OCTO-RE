@@ -32,6 +32,10 @@ remaining goal is user control over the ADSP-21469 instruction stream.
 - [x] Snapshot the complete private Process object and verify every host patch.
 - [x] Rule out clear standard SHARC LDR headers in the RealVerb wire bodies.
 - [x] Rule out the official readback operation as a public Bill pool oracle.
+- [x] Recover the official clear ADSP-21469 ELF, standard LDR block, Flat-V6
+      dynamic-module, exported-symbol, and generic relocation formats.
+- [x] Identify two adjacent 150-DM32-word private allocations whose physical
+      aliases are two exact 100-instruction PM48 spans.
 - [ ] Test one additional known private-resource selector after a fresh
       official activation; the bounded selector probe is implemented, but its
       first attempt stopped at the stale framework prerequisite.
@@ -83,9 +87,17 @@ plug-in.
 
 ## Phase 5: first user-authored program
 
-- [ ] Obtain a lawful decoded reference or documented development container.
-- [ ] Build an offline validator for its segments, relocations, entry point,
-      and reserved ranges.
+- [x] Install the official legacy SHARC toolchain and establish hash-locked
+      clear ADSP-21469 DXE/LDR references.
+- [x] Recover and validate the documented ADI Flat-V6 dynamic-module format,
+      section widths, exported entry table, and SHARC relocation records.
+- [x] Implement bounded affine source, linker layout, build driver, ABI
+      manifest, ELF/DLM/LDR validator, and block-0 DM32/PM48 alias checker.
+- [ ] Activate the official CCES evaluation and produce the affine DXE/DLM.
+- [ ] Prove that the UAD post-decode representation is Flat-V6, or identify
+      the different UAD-specific clear representation.
+- [ ] Recover the UAD framework adapter from Process state to an exported
+      user function.
 - [ ] Create a minimal DSP0 heartbeat that touches one assigned buffer only.
 - [ ] Demonstrate a fixed `out[i] = a * in[i] + b` affine kernel.
 - [ ] Add one stateful biquad, then a short FIR after affine isolation passes.
@@ -98,9 +110,10 @@ plug-in.
 | Goal | Blocking evidence | Required next evidence |
 |---|---|---|
 | inner authentication | prefix and core mutations are rejected; host parser performs no cryptography | DSP-side decode trace, lawful development artifact, or documented format |
-| clear executable | inner cores are high-entropy and generation-specific; the private Process object contains only host pointers; standard LDR framing is absent | one authenticated object paired with its clear build product |
-| DSP-side relocation | outer mapped-resource patches are known, but no inner records are visible | decoded segment image plus before-and-after loader memory trace |
-| custom entry point | Process enters the official private object, not a user-selected address | decoded module metadata or vendor development ABI |
+| UAD clear executable | generic ADSP-21469 ELF/LDR/Flat-V6 is now known, but Bill cores are high-entropy and generation-specific | stop DSP0 at the resource consumer and compare its post-decode memory with Flat-V6 |
+| UAD DSP-side relocation | all generic Flat-V6 SHARC relocation forms are known, but the UAD consumer has not been observed using them | before-and-after loader memory trace at the two code-shaped private spans |
+| custom entry point | the affine export is defined, but Process enters the official private object rather than a user-selected function | captured DSP0 call state and a verified UAD-to-affine adapter stub |
+| lawful compiler output | CCES 2.12.1 is installed, but the compiler correctly refuses to run without activation | user activation of the official evaluation license |
 | hostile-code isolation | no accepted program can intentionally hang or fault | accepted minimal custom program with bounded fault variants |
 
 ## Stop conditions

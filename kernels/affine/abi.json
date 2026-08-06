@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "processor": "ADSP-21469",
+  "silicon_revision": "0.2",
+  "image_format": "ADI Flat-V6 SHARC dynamically loadable module",
+  "exported_symbol": "_uad_affine_entry",
+  "uad_framework_adapter": "unresolved",
+  "arguments": [
+    {"index": 0, "name": "input", "type": "const float *", "address_space": "DM32"},
+    {"index": 1, "name": "output", "type": "float *", "address_space": "DM32"},
+    {"index": 2, "name": "frames", "type": "unsigned int", "maximum": 64},
+    {"index": 3, "name": "scale", "type": "float", "format": "IEEE-754 binary32"},
+    {"index": 4, "name": "bias", "type": "float", "format": "IEEE-754 binary32"}
+  ],
+  "return_values": {
+    "0": "success",
+    "-1": "null input or output pointer",
+    "-2": "frame count exceeds 64"
+  },
+  "side_effects": [
+    "writes exactly frames output words on success",
+    "does not access MMIO, flash, FPGA registers, interrupts, or another DSP",
+    "does not allocate memory or call a runtime library"
+  ],
+  "hardware_status": "not loadable until the UAD accepted-object adapter is recovered"
+}

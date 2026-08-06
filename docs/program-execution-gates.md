@@ -91,17 +91,23 @@ device authentication and that rejection does not strand the runtime.
 
 ## Custom harmless program gate
 
-A user-authored heartbeat or affine transform remains blocked on these exact
+A processor-valid user-authored affine module is now implemented under
+`kernels/affine/`. Experiment 052 recovers the official generic ADSP-21469 ELF,
+standard loader, Flat-V6 dynamic-module, exported-symbol, and relocation
+formats. It also identifies two private allocations that alias exact
+100-instruction PM48 spans. UAD execution remains blocked on these narrower
 unknowns:
 
 | Required field | Current state |
 |---|---|
-| inner clear executable | unknown; core is high-entropy, mutation-protected, and has no clear standard SHARC LDR headers |
+| clear ADSP-21469 executable | recovered for ELF, LDR, and Flat-V6; the affine source and strict validator are implemented |
+| UAD post-decode representation | unknown; Bill core is high-entropy, mutation-protected, and has no clear LDR or `bFLT` header on the wire |
 | authentication or encryption algorithm | unknown |
 | key source or lawful object creator | unknown |
-| code and data segment records | unknown |
-| DSP-side relocations | unknown; the outer host memory-spec layer is known |
-| entry point and call ABI | unknown |
+| generic code/data and relocations | Flat-V6 section widths and all supported SHARC dynamic relocations are recovered |
+| UAD segment/relocation use | unknown until a post-decode DSP memory trace is captured |
+| processor entry point | `_uad_affine_entry` is exported by the new module |
+| UAD entry adapter and call ABI | unknown |
 | stack, interrupt, circular-buffer, and overlay reservations | unknown |
 | custom-program timeout behavior | untestable without an accepted custom object |
 

@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: MIT */
+/* Minimal relocatable SHARC module layout for elf2dyn Flat-V6 output. */
+
+$OBJECTS = $COMMAND_LINE_OBJECTS;
+$LIBRARIES = ;
+
+MEMORY
+{
+    /* Abstract addresses. The runtime relocator selects physical locations. */
+    MEM_TEXT { START(0x00000000) END(0x0003ffff) TYPE(PM RAM) WIDTH(48) }
+    MEM_DATA { START(0x00060000) END(0x000bffff) TYPE(DM RAM) WIDTH(32) }
+    MEM_BSZ  { START(0x000c0000) END(0x011fffff) TYPE(DM RAM) WIDTH(32) }
+}
+
+DYNAMIC p0
+{
+    OUTPUT($COMMAND_LINE_OUTPUT_FILE)
+
+    SECTIONS
+    {
+        .text
+        {
+            INPUT_SECTION_ALIGN(4)
+            INPUT_SECTIONS($OBJECTS(seg_pmco))
+            INPUT_SECTIONS($OBJECTS(seg_pmda))
+            INPUT_SECTIONS($OBJECTS(.text))
+        } > MEM_TEXT
+
+        .data
+        {
+            INPUT_SECTION_ALIGN(4)
+            INPUT_SECTIONS($OBJECTS(seg_dmda))
+            INPUT_SECTIONS($OBJECTS(seg_swda))
+            INPUT_SECTIONS($OBJECTS(.data))
+            ldf_stack_space = .;
+            ldf_stack_length = .;
+            ldf_heap_space = .;
+            ldf_heap_length = .;
+        } > MEM_DATA
+
+        /* elf2dyn/libdyn require the zero-fill output section to be .bsz. */
+        .bsz ZERO_INIT
+        {
+            INPUT_SECTION_ALIGN(4)
+            INPUT_SECTIONS($OBJECTS(.bss))
+        } > MEM_BSZ
+    }
+}
