@@ -26,6 +26,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`authorization-states.md`](authorization-states.md): exact four-wire-value decoder and official display meanings
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`program-execution-gates.md`](program-execution-gates.md): harmless-program, API, recovery, and all-eight isolation criteria
+- [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md): corrected Process object, bounded buffers, ABI v2, and all-eight trials
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 - [`reverse-engineering-status.md`](reverse-engineering-status.md): completion matrix for every requested outcome
 
@@ -76,6 +77,15 @@ card recovered. It does not imply that later or broader operations are safe.
 | 032 | [`experiment-032-complete-realverb-resource-pass.md`](experiment-032-complete-realverb-resource-pass.md) | [`sanitized result`](data/experiment-032-complete-realverb-resource-pass/result.json) | Complete 13-resource pass accepted in 1 to 5 ms; fixed post-pass readback still produced no response |
 | 033 | [`experiment-033-034-resource-lifecycle-and-allocation.md`](experiment-033-034-resource-lifecycle-and-allocation.md) | [`combined sanitized result`](data/experiment-033-034-resource-lifecycle-and-allocation/result.json) | Exact 13-resource pool-zero cleanup commands consumed; registry clearance not proven |
 | 034 | [`experiment-033-034-resource-lifecycle-and-allocation.md`](experiment-033-034-resource-lifecycle-and-allocation.md) | [`combined sanitized result`](data/experiment-033-034-resource-lifecycle-and-allocation/result.json) | Allocation preflight stopped before zeroing or memory-spec update because the resident service no longer responded |
+| 039 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Exact RealVerb module contains 13 adjacent generation pairs; inner cores remain high-entropy and opaque |
+| 040 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | First public Bill allocation tested as a Process pointer, then superseded |
+| 041 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Superseded public-allocation pointer repeated across target DSPs, not accepted as execution evidence |
+| 042 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Zero and impulse inputs produced identical hashes at the wrong pointer, proving a negative control |
+| 043 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Correct first-private-resource pointer produced zero control and exact opposed-impulse output |
+| 044 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Eight correlated stereo ticks completed with bounded writes; no post-impulse tail appeared |
+| 045 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Corrected authorized buffer transaction passed on all eight DSPs with non-target rings unchanged |
+| 046 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Secure Boot signed ABI-v2 driver completed authorized buffer jobs on DSP0 through DSP7 |
+| 047 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Mutated bundle rejected with `EKEYREJECTED`; unchanged bundle then ran and recovered |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

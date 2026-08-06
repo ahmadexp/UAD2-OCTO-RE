@@ -1,141 +1,121 @@
 # Program execution, API, and isolation gates
 
-This is the implementation contract for the remaining general-purpose DSP
-work. It prevents a transport success from being misreported as executable
-control.
+This file separates the achieved authorized-workload path from the unresolved
+arbitrary-code path. A valid official buffer transaction is meaningful, but it
+does not reveal the encrypted or authenticated executable format.
 
-## Minimal harmless DSP0 program
+## Authorized program-buffer execution
 
-A first program is acceptable only when all of these fields are proven for the
-exact OCTO target:
+The following fields are now proven on the exact OCTO target:
+
+| Field | Proven result |
+|---|---|
+| machine family | eight `ADSP-21469 KBCZ-00` packages |
+| public resources | 13 exact generation-2 Bill objects, accepted in order |
+| private allocations | 33 `0x00080004` zero commands |
+| relocation layer | 65-dword `0x00150041` memory specification using mapped resource plus low-24-bit offset |
+| Process object | mapped first private resource at `0x0009d00a` |
+| main command | `0x000b0004`, flags `0x00400000`, request ID, Process object |
+| input | two 66-dword channel objects, 64 samples at word two |
+| output | two 68-dword channel objects, 64 samples at word four |
+| completion | `0x80020044`, request ID, channel, marker `0xf001000e` |
+| bounded output | exact opposed half-scale impulse roundtrip; zero control and seven later ticks remain zero |
+| recovery | explicit stop, VFIO reset, and IOMMU unmap pass |
+| target isolation | normal job passes independently on DSP0 through DSP7 with non-target ring indices unchanged |
+
+The word-three address is important. `0x000e0000` is the first public Bill
+allocation and produced input-independent garbage. Hash-locked static analysis
+and live controls establish `0x0009d00a` as the first private resource and the
+valid Process object.
+
+## What the output proves
+
+The corrected job satisfies the bounded-execution criteria for the captured
+official workload:
+
+1. every public resource receives a correlated success response;
+2. allocation and memory-spec commands are consumed;
+3. request and channel identifiers correlate with each output;
+4. sample data depend on the supplied input;
+5. writes stay inside the declared output prefix;
+6. non-target rings remain unchanged;
+7. the selected DSP and whole card recover; and
+8. the IOMMU mapping is removed completely.
+
+No reverb tail appears in the eight-tick stream. The result may be a default,
+bypassed, or not-yet-configured RealVerb state. It proves the framework buffer
+path, not a wet-effect claim and not a user-authored instruction stream.
+
+## Linux API version 2
+
+The UAPI advertises these hardware-tested capabilities:
+
+| Capability | Contract |
+|---|---|
+| `UAD2_CAP_RING_TRANSPORT` | all 16 four-page rings and all-eight DMA startup |
+| `UAD2_CAP_PER_DSP_RESET` | isolated reset pulse while transport is active |
+| `UAD2_CAP_PROGRAM_LOAD` | exact authorized RealVerb bundle only |
+| `UAD2_CAP_DMA_BUFFERS` | kernel-owned coherent buffers, opaque handles, bounded `mmap` |
+| `UAD2_CAP_JOB_COMPLETION` | synchronous submit and retrieval of the completed request record |
+| `UAD2_CAP_PROGRAM_ISOLATION` | non-target ring-index validation and all-eight normal trials |
+
+The program image is exactly 17 pages. Slots zero through fifteen contain the
+16 authenticated resource transport chunks. Slot sixteen contains the exact
+65-dword memory specification and zero padding. The packer validates the SHA-256
+of every private source. The kernel validates outer structure and padding, then
+the card remains the authority for inner authentication.
+
+One open file owns the device. The module supports one loaded program and one
+synchronous job at a time. `WAIT_JOB` returns the most recent completed record;
+there is no asynchronous queue in ABI version 2. Close and removal stop
+transport and release owned mappings.
+
+No ioctl accepts arbitrary physical addresses, BAR offsets, raw descriptors,
+unrestricted command words, or arbitrary program images.
+
+## Rejection and recovery gate
+
+Experiment 047 changed one byte at bundle offset 100. The device rejected the
+resource, the loader returned `EKEYREJECTED`, and recovery restored the cold
+state. An unchanged bundle then loaded and completed the exact impulse job.
+This proves that the kernel's structural allowlist cannot substitute for
+device authentication and that rejection does not strand the runtime.
+
+## Custom harmless program gate
+
+A user-authored heartbeat or affine transform remains blocked on these exact
+unknowns:
 
 | Required field | Current state |
 |---|---|
-| executable machine family and package | `ADSP-21469 KBCZ-00` optically confirmed on all eight DSPs; speed ordering suffix not visible |
-| code and data address units | data-sheet map known; loader interpretation unknown |
-| segment records and alignment | unknown |
-| relocation records and arithmetic | outer host memory-spec arithmetic recovered as `mapped resource + low24 offset`; inner opaque-core relocation format unknown |
+| inner clear executable | unknown; core is high-entropy and mutation-protected |
+| authentication or encryption algorithm | unknown |
+| key source or lawful object creator | unknown |
+| code and data segment records | unknown |
+| DSP-side relocations | unknown; the outer host memory-spec layer is known |
 | entry point and call ABI | unknown |
-| runtime-reserved ranges | four outer pools observed; allocations inside an opaque program unknown |
-| stack, interrupt, and circular-buffer reservations | unknown |
-| authentication or integrity rule | enforcement proven across the 48-byte prefix and 384-byte core; algorithm and key source unknown |
-| program-resource load and success completion | exact OCTO `0x12b` envelope and `0x80070004` success proven from Linux on all eight DSPs; module activation remains unknown |
-| unload and failure recovery | empty-engine reset proven, loaded-program recovery unproven |
+| stack, interrupt, circular-buffer, and overlay reservations | unknown |
+| custom-program timeout behavior | untestable without an accepted custom object |
 
-The first payload should do only one bounded action: increment a counter in a
-dedicated IOMMU buffer and return or wait. It must not touch audio I/O, flash,
-FPGA configuration, other DSPs, or unrestricted host addresses.
+The first custom payload, once these rules are known, should increment a
+counter in one dedicated buffer and return. It must not access audio I/O,
+flash, FPGA configuration, other DSPs, or unrestricted host addresses.
 
-## Load acceptance criteria
+## Isolation status
 
-A load is successful only if all of the following are captured:
+Normal authorized execution has passed on all eight targets. The following
+matrix distinguishes achieved tests from tests that require custom code:
 
-1. the loader consumes the exact program object;
-2. a documented success response is received;
-3. the program writes only inside its assigned IOVA buffer;
-4. a monotonically increasing heartbeat or explicit completion is observed;
-5. timeout stops DSP0 without changing DSP1 through DSP7 status;
-6. DSP0 reset returns its rings and DMA state to the baseline;
-7. IOMMU teardown reports no mapping or fault leakage;
-8. cold baseline is independently recaptured after unload.
-
-An advanced ring index without a response and bounded output is not a program
-load.
-
-Experiment 031 applies the same rule to the statically recovered resource
-readback command. `0x000c0004` was consumed after exact `0x12b` acceptance, but
-its response descriptor was not consumed and its six-word canary remained
-unchanged. The official driver queues readback only as part of `Process`, so
-standalone readback is not an execution or decoded-memory milestone.
-
-Experiment 032 removes incomplete resource loading as the explanation. All 13
-resources in the first RealVerb pass returned exact, correlated success
-responses, including all three two-descriptor resources. The same fixed
-readback was then consumed without a response. This narrows the missing
-prerequisite to plug-in allocation, address patching, process submission, or
-activation state. It does not relax any heartbeat or output requirement.
-
-Experiments 033 and 034 add a recovery gate. The exact 13 pool-zero unload
-commands were consumed, but query 026 and the first resource response remained
-absent even after the proven per-DSP reset sequence. The planned 33
-private-resource zero commands and exact 65-dword memory-spec update were not
-submitted. Fresh official activation is required before that gate can be
-tested.
-
-## Linux API progression
-
-The current kernel and userspace interfaces intentionally expose only proven
-transport and status operations. Program, buffer, submit, and wait entry points
-return `-EOPNOTSUPP`.
-
-Future interface milestones must be enabled one at a time. The names below are
-evidence milestones, not additional version-1 UAPI constants:
-
-| Capability | Evidence gate |
-|---|---|
-| `RUNTIME_RESPONSE` | achieved by query 026 in Experiment 027 |
-| `PROGRAM_VALIDATE` | offline parser rejects malformed segments and relocations |
-| `PROGRAM_LOAD_DSP0` | exact load ABI and success completion |
-| `DMA_BUFFER` | program-visible IOVA width, alignment, lifetime, and direction |
-| `JOB_SUBMIT` | request ID and ownership semantics |
-| `JOB_WAIT` | completion record, timeout, and cancellation semantics |
-| `MULTI_DSP` | repeatable DSP0 recovery plus target selection in the proven ABI |
-
-No ioctl may accept arbitrary physical addresses or unrestricted MMIO offsets.
-Every mapping remains owned by the kernel, bounded by the IOMMU, associated
-with one open file, and revoked on close, timeout, reset, or process death.
-
-## Eight-DSP isolation matrix
-
-Program-level isolation requires more than the completed empty-reset test.
-Experiment 030 also proves authenticated loader targeting across all eight
-engines: only the selected engine's ring indices advance. The matrix below
-still requires an activated program.
-For target DSP `i`, each test records status for all eight engines before,
-during, and after the fault:
-
-| Fault case | Expected target behavior | Expected non-target behavior |
+| Case | Status | Evidence |
 |---|---|---|
-| normal heartbeat | completes | unchanged |
-| program timeout | DSP `i` reset and job fails | counters and ring indices continue |
-| malformed program rejected offline | no hardware write | unchanged |
-| response timeout | buffers revoked, DSP `i` reset | unchanged |
-| process exit during job | ownership revoked, DSP `i` recovered | unchanged |
-| IOMMU write outside buffer | fault captured, DSP `i` disabled | no memory or status change |
-| repeated reset | deterministic baseline | unchanged |
+| normal authorized job on each DSP | passed | exact output, completion, non-target rings unchanged |
+| mutated authenticated object | passed | device rejection, cold recovery, unchanged retry success |
+| repeated start, run, stop | passed sequentially | ABI-v2 all-eight campaign |
+| hung custom instruction stream | blocked | no arbitrary loader |
+| DSP-originated out-of-range IOMMU write | blocked | no controlled faulting program |
+| concurrent independent programs | not implemented | driver intentionally owns one program at a time |
+| asynchronous cancellation | not implemented | submit is synchronous |
 
-The full campaign is 8 targets times 7 cases, followed by concurrent pairs
-and then all-eight saturation. Advancement requires zero cross-DSP register,
-ring, buffer, or interrupt changes outside the documented shared masks.
-
-## Public prior-work audit
-
-Open Apollo provides valuable related-endpoint hypotheses, but its source
-currently contains two incompatible firmware loaders:
-
-- an older function claims one contiguous descriptor and includes a response
-  value in the transmitted data;
-- a later `ua_dsp_send_block` implementation correctly treats the response
-  class as validation-only and uses a response descriptor, extended header,
-  and per-page payload descriptors.
-
-The exact official PCIe assembly supports the later framing and contradicts
-the older one. The later public code changes payload chunks to 1 KiB after an
-Apollo-specific stall and caps blocks at 256 KiB. Those choices are not the
-official OCTO loader and cannot carry its 2.5 MiB HBUT unchanged.
-
-The same source contains captured Apollo x4 `Bill` programs and conflicting
-program-command commentary and constants. Those bytes and constants are not
-target-compatible proof for an OCTO. They must not be copied into a DSP0 test.
-
-The current public header has now been audited at a fixed commit. Its five
-cores exactly match five official UAD 11.0.1 cabinet cores; only the high byte
-of the outer resource ID differs. This establishes common resource content and
-supports the public semantic labels, but the accompanying module entry points,
-code offsets, and SRAM addresses still come from Apollo x4 runtime captures.
-They cannot define OCTO reservations or an OCTO heartbeat ABI.
-
-The stepbrobd/uad2 project contributes useful macOS transport observations but
-does not establish general-purpose OCTO program execution. This repository
-therefore keeps all related-project conclusions labeled as hypotheses until an
-exact official binary or the physical OCTO confirms them.
+The achieved result supports safe research with the exact authorized workload.
+It does not justify advertising hostile-code containment or a multi-tenant DSP
+scheduler.

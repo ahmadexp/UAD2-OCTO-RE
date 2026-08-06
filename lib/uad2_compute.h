@@ -23,13 +23,11 @@ int uad2_compute_reset_dsp(struct uad2_compute *device,
 			   unsigned int dsp_index,
 			   struct uad2_compute_reset *result);
 
-/*
- * These operations define the intended compute-facing API boundary. They
- * return -EOPNOTSUPP until the program format and completion protocol are
- * established on hardware.
- */
 int uad2_compute_alloc_buffer(struct uad2_compute *device, size_t bytes,
 			      unsigned int flags, uint64_t *buffer_id);
+void *uad2_compute_buffer_data(struct uad2_compute *device,
+			       uint64_t buffer_id, size_t *bytes);
+int uad2_compute_free_buffer(struct uad2_compute *device, uint64_t buffer_id);
 int uad2_compute_load_program(struct uad2_compute *device,
 			      unsigned int dsp_index,
 			      const void *image, size_t bytes,
@@ -38,6 +36,6 @@ int uad2_compute_submit(struct uad2_compute *device, unsigned int dsp_index,
 			uint64_t program_id, uint64_t input_buffer_id,
 			uint64_t output_buffer_id, uint64_t *job_id);
 int uad2_compute_wait(struct uad2_compute *device, uint64_t job_id,
-		      int timeout_ms);
+		      int timeout_ms, struct uad2_compute_job_wait *completion);
 
 #endif

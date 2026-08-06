@@ -1,6 +1,6 @@
 # UAD-2 OCTO reverse engineering
 
-[![CI](https://github.com/ahmadexp/uad2-octo-reverse-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmadexp/uad2-octo-reverse-engineering/actions/workflows/ci.yml)
+[![CI](https://github.com/ahmadexp/UAD2-OCTO-RE/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmadexp/UAD2-OCTO-RE/actions/workflows/ci.yml)
 [![License: GPL-2.0-only](https://img.shields.io/badge/license-GPL--2.0--only-blue.svg)](LICENSE)
 
 ![Universal Audio UAD-2 OCTO PCIe card](docs/images/uad2-octo-rev5-highres.jpg)
@@ -17,49 +17,39 @@ used for general-purpose computation.
 
 ## Current result
 
-The PCIe transport is now reproduced across all eight DSPs on one UAD-2 OCTO
-Rev 5 card. All 16 four-page rings can be published through 64 IOMMU-contained
-pages, every DSP engine can be enabled, official connect and query commands are
-dequeued, and explicit cleanup plus VFIO reset recovers the cold state.
+The host stack is now reproduced through an authenticated program-buffer
+transaction on all eight DSPs of one UAD-2 OCTO Rev 5 card. Linux publishes all
+16 four-page rings, loads the exact 13-resource RealVerb set, applies the 33
+private allocations and 65-dword memory specification, submits one 64-sample
+stereo tick, receives two counter-correlated outputs, and recovers the cold
+state. The transaction was repeated independently on DSP0 through DSP7 with
+every non-target ring index unchanged.
 
-General-purpose DSP execution is **not yet achieved**, but the response and
-authenticated loader paths now work from Linux. After safely adopting a
-framework initialized by the official driver, Linux received query 026's exact
-`0x800c0005` response and the exact first RealVerb `Bill` object's
-`0x80070004` success, both in 1 ms. The same authenticated object was accepted
-independently by DSP0 through DSP7 while every non-target ring index remained
-unchanged.
+The corrected main command is `000b0004 00400000 request_id 0009d00a`.
+Hash-locked static analysis proves that word three is the mapped first private
+resource, not the first public Bill allocation at `0x000e0000`. A positive
+half-scale sample on channel zero and a negative half-scale sample on channel
+one are returned bit-for-bit. Seven later zero ticks return zero and show no
+reverb tail. This proves the host-to-DSP buffer layout, request correlation,
+bounded output, and completion ABI. It does not prove that the RealVerb wet
+algorithm is active.
 
-Controlled one-bit changes at both ends of the object's 48-byte prefix and
-384-byte trailing core were all rejected with structured `0xf001` errors;
-unchanged controls were accepted before and after. Device-side integrity or
-authentication therefore covers the complete opaque body. This explains why
-the repository cannot honestly substitute a new heartbeat program yet: the
-cipher or authentication algorithm, clear executable, relocations, entry
-point, and program-visible buffer ABI remain unknown.
+Linux ABI version 2 now provides opaque coherent-buffer handles, bounded
+`mmap`, exact authorized-bundle loading, synchronous job submission, completion
+retrieval, and all-eight target selection. A Secure Boot signed module passed
+the complete eight-DSP trial. A one-byte bundle mutation was rejected with
+`EKEYREJECTED`; the unchanged bundle then ran immediately and the card returned
+to zero ring indices. No raw MMIO, physical address, unrestricted command, or
+arbitrary program-image API is exposed.
 
-The outer host runtime ABI is now substantially clearer. The fixed native
-plug-in allocation record is `0x0af0` bytes, its 16-byte memory specs drive a
-`0x00150000` mapped-address patch command, and its 8-byte readback specs drive
-command `0x000c0004` with an exact `requested_dwords + 2` response buffer. A
-bounded four-dword read at the accepted `0x12b` allocation was consumed but
-produced no response. This negative result shows that the command is not a
-standalone decoded-memory oracle; the official driver queues it only inside a
-complete plug-in process transaction.
-
-The entire captured first RealVerb resource pass is now reproduced from Linux.
-All 13 exact resources, carried by 16 page-bounded DMA descriptors, returned
-resource-specific `0x80070004` completions in 1 to 5 ms. The fixed readback
-still produced no response after this complete pass, which cleanly moves the
-next boundary from resource loading to plug-in allocation and `Process`
-metadata.
-
-That full-pass result is one-shot in the current lab state. Subsequent resource
-and query-026 commands were consumed without responses, and exact unload plus
-per-DSP reset did not restore the service. The reproducer therefore requires an
-explicit acknowledgement that fresh official activation may be needed. No
-private-resource zeroing or memory-spec update was executed after the service
-became unavailable.
+General-purpose custom SHARC execution is **not yet achieved**. Controlled
+mutations prove device-side integrity over both regions of the opaque `Bill`
+body. The exact RealVerb DLL contains 13 adjacent generation-1/generation-2
+pairs whose cores differ at near-random density and do not match standard
+compression, digest, or repeated-block hypotheses. The inner authentication or
+encryption algorithm, key source, clear segment format, DSP-side relocations,
+entry point, and runtime reservations remain unknown. The current API can run
+the captured official workload only, not user-authored code.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -99,16 +89,16 @@ is documented but intentionally unexecuted.
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | `Bill` DSP resource acceptance | Exact `0x12b` success from Linux on all eight DSPs | [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md) |
 | Complete RealVerb resource pass | All 13 exact resources accepted sequentially on DSP0; fixed post-pass readback remained unanswered | [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md) |
-| Resource cleanup and allocation preflight | Exact unloads consumed; allocation remained gated because runtime responses stopped | [`docs/experiment-033-034-resource-lifecycle-and-allocation.md`](docs/experiment-033-034-resource-lifecycle-and-allocation.md) |
+| Resource cleanup and allocation | Exact unloads, 33 private-resource zero commands, and 65-dword memory specification consumed | [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md) |
 | `Bill` inner integrity | Prefix and core one-bit changes rejected; algorithm unresolved | [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md) |
-| Host runtime relocation and readback ABI | Allocation record, memory-spec patch, and readback builders recovered; standalone read produced no response | [`docs/experiment-031-post-load-readback.md`](docs/experiment-031-post-load-readback.md) |
+| Host runtime relocation and Process ABI | Allocation record, memory-spec patch, first-private-resource pointer, buffers, request counter, and response layout recovered | [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
 | Official system-information record | Six fields assigned; live OCTO response missing | [`docs/system-information-record.md`](docs/system-information-record.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
-| DSP program loading | Authenticated resource accepted; entry-point execution not attempted | [`docs/roadmap.md`](docs/roadmap.md) |
-| Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
+| Authenticated program-buffer path | Exact official RealVerb allocation and bounded stereo roundtrip pass on all eight DSPs | [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md) |
+| Generic compute API | ABI v2 buffers, authorized loading, synchronous jobs, completions, and target isolation implemented; arbitrary images rejected | [`docs/driver-api.md`](docs/driver-api.md) |
 | Kernel transport hardware run | Confirmed across all eight DSP engines | [`docs/experiment-019-kernel-transport.md`](docs/experiment-019-kernel-transport.md) |
 
 ## Observed hardware
@@ -157,6 +147,7 @@ these tools on an older profile.
 - [`docs/experiment-031-post-load-readback.md`](docs/experiment-031-post-load-readback.md): runtime ABI and bounded negative readback trial
 - [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md): all 13 exact resources accepted with bounded post-pass readback
 - [`docs/experiment-033-034-resource-lifecycle-and-allocation.md`](docs/experiment-033-034-resource-lifecycle-and-allocation.md): exact lifecycle semantics, cleanup, and fail-closed allocation preflight
+- [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md): corrected Process pointer, bounded buffers, ABI v2, rejection recovery, and all-eight isolation
 - [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
@@ -268,6 +259,32 @@ not justified.
 34. Prepare exact private-resource zeroing and the 65-dword memory-spec update.
     Stop before either is sent because the prerequisite resource response and
     query-026 service no longer respond after the one-shot full pass.
+35. Reactivate the official plug-in runtime and recapture its allocation and
+    Process transaction boundaries.
+36. Recover the 33 private-resource zero commands and exact 65-dword memory
+    specification from the official sequence.
+37. Recover the 66-dword channel input, 68-dword channel output, and four-dword
+    main Process command layouts.
+38. Correlate the Process request counter, output channel IDs, and the repeated
+    hardware marker `0xf001000e`.
+39. Recover the exact RealVerb plug-in modules and compare all 13 adjacent
+    generation-1/generation-2 Bill pairs without publishing payload bytes.
+40. Submit a bounded Process transaction using the first public allocation as
+    an address hypothesis. Preserve it as a superseded negative control.
+41. Repeat the superseded address trial across DSP1 through DSP7. Response-like
+    data appears, but the result is not input-dependent.
+42. Compare zero and impulse inputs at the superseded address. Identical output
+    hashes reject the interpretation as valid program output.
+43. Use the statically proven first private allocation `0x0009d00a`. Zero input
+    returns zero and the opposed half-scale impulse returns exactly.
+44. Run one impulse tick followed by seven zero ticks. Counters one through
+    eight correlate, writes remain bounded, and no tail appears.
+45. Repeat the corrected impulse transaction independently on DSP0 through
+    DSP7 with all non-target ring indices unchanged and full recovery.
+46. Load the Secure Boot signed ABI-v2 module and run the authorized bundle
+    through buffer, load, submit, and completion calls on all eight DSPs.
+47. Mutate one bundle byte, observe `EKEYREJECTED`, then immediately run the
+    unchanged bundle and verify exact recovery.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

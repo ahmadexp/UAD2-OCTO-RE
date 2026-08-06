@@ -95,6 +95,23 @@ SIGNATURES = (
         bytes.fromhex("c7410804001f004489690c8959104489491448894148"),
         "synchronous plug-in control uses the separate four-dword command 0x001f0004",
     ),
+    (
+        0x2A749,
+        bytes.fromhex(
+            "488b7b1883bb200b000000740c488b83280b0000488b30eb0231f6e8796b"
+            "ffff8983d80b000083f8ff750d488b43188b40788983d80b0000"
+        ),
+        "SetDSPResourceManager resolves the first private resource and stores its mapped address at object offset 0x0bd8",
+    ),
+    (
+        0x2BF1D,
+        bytes.fromhex(
+            "458bbed80b0000458ba66c0c0000817b20efbeadde741a488d3dbce40000"
+            "488d3515e40000bab800000031c0e8000000004183cc04488d4308448963"
+            "088b4dd4894b0c44896b1044897b144889434848"
+        ),
+        "Process places the request counter and stored first-private-resource address in the four-dword main command",
+    ),
 )
 
 
@@ -153,6 +170,13 @@ def inspect(path: Path) -> dict[str, object]:
         "synchronous_control": {
             "command": "0x001f0004",
             "is_general_entry_point": False,
+        },
+        "process": {
+            "main_command_dwords": 4,
+            "request_counter_word": 2,
+            "resource_address_word": 3,
+            "resource_address_source": "mapped first private resource",
+            "plugin_object_address_offset": "0x0bd8",
         },
         "checks": checks,
     }

@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 // SPDX-License-Identifier: GPL-2.0-only
-/* Experiments 032-034: replay, cleanup, and allocation lifecycle probes. */
+/* Experiments 032-034 and 040-042: resource lifecycle and bounded processing. */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -31,7 +31,11 @@
 #define RESPONSE_PAGE_BASE (RESOURCE_PAGE_BASE + CHUNK_COUNT)
 #define READBACK_PAGE (RESPONSE_PAGE_BASE + RESOURCE_COUNT)
 #define MEMSPEC_PAGE (READBACK_PAGE + 1)
-#define PAGE_COUNT (MEMSPEC_PAGE + 1)
+#define PROCESS_INPUT_PAGE_BASE (MEMSPEC_PAGE + 1)
+#define PROCESS_TICKS_MAX 8
+#define PROCESS_OUTPUT_PAGE_BASE \
+	(PROCESS_INPUT_PAGE_BASE + PROCESS_CHANNELS * PROCESS_TICKS_MAX)
+#define PAGE_COUNT (PROCESS_OUTPUT_PAGE_BASE + PROCESS_CHANNELS * PROCESS_TICKS_MAX)
 #define DMA_CONTROL 0x2200
 #define INTERRUPT_ENABLE 0x2204
 #define INTERRUPT_ACK 0x2208
@@ -48,8 +52,18 @@
 #define READBACK_RESPONSE_WORDS (READBACK_DWORDS + 2)
 #define ZERO_COMMAND_COUNT 33
 #define MEMSPEC_DWORDS 65
+#define PROCESS_CHANNELS 2
+#define PROCESS_INPUT_DWORDS 0x42
+#define PROCESS_OUTPUT_DWORDS 0x44
+#define PROCESS_COMMAND_BASE 0x000b0000
+#define PROCESS_COMMAND_DWORDS 4
+#define PROCESS_FLAGS 0x00400000
+#define PROCESS_PLUGIN_ADDRESS 0x0009d00a
+#define PROCESS_PROPERTY_7 0x000b2000
+#define PROCESS_RESPONSE_MARKER 0xf001000e
 #define RESOURCE_WAIT_MS 600
 #define READBACK_WAIT_MS 6000
+#define PROCESS_WAIT_MS 6000
 
 struct resource_definition {
 	uint32_t id;
@@ -79,6 +93,11 @@ static const uint32_t dsp_banks[DSP_COUNT] = {
 static const uint32_t boot_offsets[DSP_COUNT] = {
 	0x01a4, 0x09a4, 0x11a4, 0x19a4,
 	0x41a4, 0x49a4, 0x51a4, 0x59a4,
+};
+
+static const uint32_t property_7_offsets[DSP_COUNT] = {
+	0x01a0, 0x09a0, 0x11a0, 0x19a0,
+	0x41a0, 0x49a0, 0x51a0, 0x59a0,
 };
 
 static const struct resource_definition resources[RESOURCE_COUNT] = {
@@ -328,7 +347,9 @@ static bool load_exact_memspec(unsigned char *memory, const char *path)
 }
 
 static bool memory_writes_bounded(const unsigned char *memory,
-				  const unsigned char *snapshot)
+				  const unsigned char *snapshot,
+				  bool process_probe,
+				  unsigned int process_ticks)
 {
 	unsigned int page;
 
@@ -354,7 +375,37 @@ static bool memory_writes_bounded(const unsigned char *memory,
 		   snapshot + MEMSPEC_PAGE * PAGE_SIZE_4K,
 		   PAGE_SIZE_4K) != 0)
 		return false;
+	for (page = 0; page < PROCESS_CHANNELS * PROCESS_TICKS_MAX; page++) {
+		size_t input_offset = (PROCESS_INPUT_PAGE_BASE + page) * PAGE_SIZE_4K;
+		size_t output_offset = (PROCESS_OUTPUT_PAGE_BASE + page) * PAGE_SIZE_4K;
+
+		if (memcmp(memory + input_offset, snapshot + input_offset,
+			   PAGE_SIZE_4K) != 0)
+			return false;
+		if (process_probe && page < PROCESS_CHANNELS * process_ticks) {
+			if (memcmp(memory + output_offset + PROCESS_OUTPUT_DWORDS * 4,
+				   snapshot + output_offset + PROCESS_OUTPUT_DWORDS * 4,
+				   PAGE_SIZE_4K - PROCESS_OUTPUT_DWORDS * 4) != 0)
+				return false;
+		} else if (memcmp(memory + output_offset, snapshot + output_offset,
+				  PAGE_SIZE_4K) != 0) {
+			return false;
+		}
+	}
 	return true;
+}
+
+static uint32_t fnv1a32(const uint32_t *words, size_t count)
+{
+	const unsigned char *bytes = (const unsigned char *)words;
+	uint32_t hash = 2166136261U;
+	size_t byte;
+
+	for (byte = 0; byte < count * sizeof(*words); byte++) {
+		hash ^= bytes[byte];
+		hash *= 16777619U;
+	}
+	return hash;
 }
 
 int main(int argc, char **argv)
@@ -377,21 +428,34 @@ int main(int argc, char **argv)
 	bool container_set = false, dma_mapped = false, startup = false;
 	bool all_accepted = true, ready_after = false, writes_bounded = false;
 	bool non_target_indices_unchanged = true;
-	bool cleanup_probe = false, allocation_probe = false;
+	bool cleanup_probe = false, allocation_probe = false, process_probe = false;
+	bool isolation_trial = false, impulse_probe = false, stream_probe = false;
 	bool allocation_commands_consumed = true;
 	bool memspec_consumed = false;
 	bool readback_requested = false, readback_command_consumed = false;
 	bool readback_response_consumed = false, readback_observed = false;
+	bool process_requested = false, process_commands_consumed = false;
+	bool process_responses_consumed = false, process_outputs_observed = false;
+	bool process_response_headers_valid = false;
 	bool restored = false, reset_recovered = false;
 	bool iommu_unmap_succeeded = false;
 	uint32_t readback_response[READBACK_RESPONSE_WORDS] = {0};
 	uint32_t command_position = 0, response_position = 0;
 	uint32_t interrupt_shadow = CALLBACK_SHADOW;
+	unsigned int target_dsp = 0;
 	unsigned int resource_index, dsp, ring, part, word, path_offset = 1;
 	unsigned int zero_polls[ZERO_COMMAND_COUNT] = {0};
 	unsigned int zero_consumed_count = 0, memspec_polls = 0;
 	unsigned int unload_polls[RESOURCE_COUNT] = {0}, unload_consumed_count = 0;
 	unsigned int readback_polls = 0, accepted_count = 0;
+	unsigned int process_polls = 0, process_ticks = 1;
+	unsigned int process_changed_dwords[PROCESS_TICKS_MAX][PROCESS_CHANNELS] = {0};
+	unsigned int process_nonzero_audio[PROCESS_TICKS_MAX][PROCESS_CHANNELS] = {0};
+	uint32_t process_response_headers[PROCESS_TICKS_MAX][PROCESS_CHANNELS][4] = {0};
+	uint32_t process_response_tails[PROCESS_TICKS_MAX][PROCESS_CHANNELS] = {0};
+	uint32_t process_output_hashes[PROCESS_TICKS_MAX][PROCESS_CHANNELS] = {0};
+	uint32_t process_output_preview[PROCESS_TICKS_MAX][PROCESS_CHANNELS][4] = {0};
+	bool process_input_roundtrip_valid = false, process_tail_observed = false;
 	int result = EXIT_FAILURE;
 
 	sigemptyset(&action.sa_mask);
@@ -403,8 +467,62 @@ int main(int argc, char **argv)
 	} else if (argc == CHUNK_COUNT + 3 && strcmp(argv[1], "--allocation") == 0) {
 		allocation_probe = true;
 		path_offset = 2;
+	} else if (argc == CHUNK_COUNT + 3 && strcmp(argv[1], "--process") == 0) {
+		allocation_probe = true;
+		process_probe = true;
+		path_offset = 2;
+	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-041: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		isolation_trial = true;
+		path_offset = 3;
+	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-impulse-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-042: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		impulse_probe = true;
+		path_offset = 3;
+	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-stream-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-044: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		impulse_probe = true;
+		stream_probe = true;
+		process_ticks = PROCESS_TICKS_MAX;
+		path_offset = 3;
 	} else if (argc != CHUNK_COUNT + 1) {
-		fprintf(stderr, "usage: vfio_realverb_sequence --cleanup | [--allocation] exact-chunk-0 ... exact-chunk-15 [exact-memspec]\n");
+		fprintf(stderr, "usage: vfio_realverb_sequence --cleanup | [--allocation|--process] exact-chunk-0 ... exact-chunk-15 [exact-memspec] | [--process-dsp|--process-impulse-dsp|--process-stream-dsp] {0..7} exact-chunk-0 ... exact-chunk-15 exact-memspec\n");
 		return EXIT_FAILURE;
 	}
 	if (sysconf(_SC_PAGESIZE) != PAGE_SIZE_4K) {
@@ -450,11 +568,32 @@ int main(int argc, char **argv)
 		memset(memory + (RESPONSE_PAGE_BASE + resource_index) * PAGE_SIZE_4K,
 		       0xa5, PAGE_SIZE_4K);
 	memset(memory + READBACK_PAGE * PAGE_SIZE_4K, 0xa5, PAGE_SIZE_4K);
+	if (process_probe) {
+		unsigned int channel, tick;
+
+		for (tick = 0; tick < process_ticks; tick++) {
+			for (channel = 0; channel < PROCESS_CHANNELS; channel++) {
+				unsigned int page = tick * PROCESS_CHANNELS + channel;
+				uint32_t *input = (uint32_t *)(memory +
+					(PROCESS_INPUT_PAGE_BASE + page) * PAGE_SIZE_4K);
+				uint32_t *output = (uint32_t *)(memory +
+					(PROCESS_OUTPUT_PAGE_BASE + page) * PAGE_SIZE_4K);
+
+				input[0] = 0x00070042;
+				input[1] = PROCESS_PROPERTY_7 + channel * 0x40;
+				if (impulse_probe && tick == 0)
+					input[2] = channel == 0 ? 0x3f000000U : 0xbf000000U;
+				memset(output, 0xcc, 4 * sizeof(uint32_t));
+				output[PROCESS_OUTPUT_DWORDS - 1] = 0xffffdead;
+			}
+		}
+	}
 
 	for (resource_index = 0; !cleanup_probe && resource_index < RESOURCE_COUNT;
 	     resource_index++) {
 		const struct resource_definition *definition = &resources[resource_index];
-		uint32_t *response_descriptor = ring_entry(memory, 0, 1, resource_index);
+		uint32_t *response_descriptor = ring_entry(memory, target_dsp, 1,
+			resource_index);
 		uint64_t response_iova = TEST_IOVA +
 			(RESPONSE_PAGE_BASE + resource_index) * (uint64_t)PAGE_SIZE_4K;
 
@@ -462,7 +601,7 @@ int main(int argc, char **argv)
 		response_descriptor[2] = (uint32_t)response_iova;
 		response_descriptor[3] = (uint32_t)(response_iova >> 32);
 		for (part = 0; part < definition->chunk_count; part++) {
-			uint32_t *command_descriptor = ring_entry(memory, 0, 0,
+			uint32_t *command_descriptor = ring_entry(memory, target_dsp, 0,
 				definition->first_chunk + part);
 			uint64_t chunk_iova = TEST_IOVA +
 				(RESOURCE_PAGE_BASE + definition->first_chunk + part) *
@@ -477,7 +616,8 @@ int main(int argc, char **argv)
 	if (cleanup_probe) {
 		for (resource_index = 0; resource_index < RESOURCE_COUNT;
 		     resource_index++) {
-			uint32_t *command = ring_entry(memory, 0, 0, resource_index);
+			uint32_t *command = ring_entry(memory, target_dsp, 0,
+				resource_index);
 
 			command[0] = 0x00030002;
 			command[1] = resources[resource_index].id;
@@ -485,7 +625,7 @@ int main(int argc, char **argv)
 	} else {
 		uint32_t readback_index = CHUNK_COUNT;
 		uint32_t *command;
-		uint32_t *response = ring_entry(memory, 0, 1, RESOURCE_COUNT);
+		uint32_t *response = ring_entry(memory, target_dsp, 1, RESOURCE_COUNT);
 		uint64_t response_iova = TEST_IOVA +
 			READBACK_PAGE * (uint64_t)PAGE_SIZE_4K;
 
@@ -493,10 +633,11 @@ int main(int argc, char **argv)
 			unsigned int zero_index;
 
 			for (zero_index = 0; zero_index < ZERO_COMMAND_COUNT; zero_index++)
-				memcpy(ring_entry(memory, 0, 0, CHUNK_COUNT + zero_index),
+				memcpy(ring_entry(memory, target_dsp, 0,
+					       CHUNK_COUNT + zero_index),
 				       zero_commands[zero_index], sizeof(zero_commands[zero_index]));
 			{
-				uint32_t *descriptor = ring_entry(memory, 0, 0,
+				uint32_t *descriptor = ring_entry(memory, target_dsp, 0,
 					CHUNK_COUNT + ZERO_COMMAND_COUNT);
 				uint64_t memspec_iova = TEST_IOVA +
 					MEMSPEC_PAGE * (uint64_t)PAGE_SIZE_4K;
@@ -507,14 +648,47 @@ int main(int argc, char **argv)
 			}
 			readback_index += ZERO_COMMAND_COUNT + 1;
 		}
-		command = ring_entry(memory, 0, 0, readback_index);
-		command[0] = READBACK_COMMAND;
-		command[1] = resources[0].allocation;
-		command[2] = READBACK_DWORDS;
-		command[3] = 0;
-		response[0] = 0x80000000U | READBACK_RESPONSE_WORDS;
-		response[2] = (uint32_t)response_iova;
-		response[3] = (uint32_t)(response_iova >> 32);
+		if (process_probe) {
+			unsigned int channel, tick;
+
+			for (tick = 0; tick < process_ticks; tick++) {
+				for (channel = 0; channel < PROCESS_CHANNELS; channel++) {
+					unsigned int page = tick * PROCESS_CHANNELS + channel;
+					uint32_t *input_descriptor = ring_entry(memory, target_dsp, 0,
+						readback_index + tick * 3 + channel);
+					uint32_t *output_descriptor = ring_entry(memory, target_dsp, 1,
+						RESOURCE_COUNT + page);
+					uint64_t input_iova = TEST_IOVA +
+						(PROCESS_INPUT_PAGE_BASE + page) *
+						(uint64_t)PAGE_SIZE_4K;
+					uint64_t output_iova = TEST_IOVA +
+						(PROCESS_OUTPUT_PAGE_BASE + page) *
+						(uint64_t)PAGE_SIZE_4K;
+
+					input_descriptor[0] = 0x80000000U | PROCESS_INPUT_DWORDS;
+					input_descriptor[2] = (uint32_t)input_iova;
+					input_descriptor[3] = (uint32_t)(input_iova >> 32);
+					output_descriptor[0] = 0x80000000U | PROCESS_OUTPUT_DWORDS;
+					output_descriptor[2] = (uint32_t)output_iova;
+					output_descriptor[3] = (uint32_t)(output_iova >> 32);
+				}
+				command = ring_entry(memory, target_dsp, 0,
+					readback_index + tick * 3 + PROCESS_CHANNELS);
+				command[0] = PROCESS_COMMAND_BASE | PROCESS_COMMAND_DWORDS;
+				command[1] = PROCESS_FLAGS;
+				command[2] = tick + 1;
+				command[3] = PROCESS_PLUGIN_ADDRESS;
+			}
+		} else {
+			command = ring_entry(memory, target_dsp, 0, readback_index);
+			command[0] = READBACK_COMMAND;
+			command[1] = resources[0].allocation;
+			command[2] = READBACK_DWORDS;
+			command[3] = 0;
+			response[0] = 0x80000000U | READBACK_RESPONSE_WORDS;
+			response[2] = (uint32_t)response_iova;
+			response[3] = (uint32_t)(response_iova >> 32);
+		}
 	}
 	snapshot = malloc(memory_size);
 	if (!snapshot) {
@@ -578,18 +752,18 @@ int main(int argc, char **argv)
 			uint32_t expected_command_position = command_position + 1;
 			unsigned int poll;
 
-			write32(bar, dsp_banks[0] + 0x24, expected_command_position);
-			write32(bar, dsp_banks[0] + 0x20, expected_command_position);
-			interrupt_shadow |= 1U;
+			write32(bar, dsp_banks[target_dsp] + 0x24, expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x20, expected_command_position);
+			interrupt_shadow |= 1U << (target_dsp * 4);
 			write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
 			for (poll = 0; poll < RESOURCE_WAIT_MS && !interrupted; poll++) {
-				if (read32(bar, dsp_banks[0] + 0x28) ==
+				if (read32(bar, dsp_banks[target_dsp] + 0x28) ==
 				    expected_command_position)
 					break;
 				nanosleep(&delay, NULL);
 			}
 			unload_polls[resource_index] = poll;
-			if (read32(bar, dsp_banks[0] + 0x28) !=
+			if (read32(bar, dsp_banks[target_dsp] + 0x28) !=
 			    expected_command_position)
 				break;
 			unload_consumed_count++;
@@ -610,20 +784,20 @@ int main(int argc, char **argv)
 		uint32_t expected_response_position = response_position + 1;
 		unsigned int poll;
 
-		write32(bar, dsp_banks[0] + 0x40 + 0x24,
+		write32(bar, dsp_banks[target_dsp] + 0x40 + 0x24,
 			expected_response_position);
-		write32(bar, dsp_banks[0] + 0x40 + 0x20,
+		write32(bar, dsp_banks[target_dsp] + 0x40 + 0x20,
 			expected_response_position);
-		interrupt_shadow |= 2U;
+		interrupt_shadow |= 2U << (target_dsp * 4);
 		write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
-		write32(bar, dsp_banks[0] + 0x24, expected_command_position);
-		write32(bar, dsp_banks[0] + 0x20, expected_command_position);
-		interrupt_shadow |= 1U;
+		write32(bar, dsp_banks[target_dsp] + 0x24, expected_command_position);
+		write32(bar, dsp_banks[target_dsp] + 0x20, expected_command_position);
+		interrupt_shadow |= 1U << (target_dsp * 4);
 		write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
 
 		for (poll = 0; poll < RESOURCE_WAIT_MS && !interrupted; poll++) {
-			if (read32(bar, dsp_banks[0] + 0x28) == expected_command_position &&
-			    read32(bar, dsp_banks[0] + 0x40 + 0x28) ==
+			if (read32(bar, dsp_banks[target_dsp] + 0x28) == expected_command_position &&
+			    read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
 				expected_response_position &&
 			    response_buffer[0] != 0xa5a5a5a5U)
 				break;
@@ -634,9 +808,9 @@ int main(int argc, char **argv)
 		for (word = 0; word < BILL_RESPONSE_WORDS; word++)
 			resource_result->response[word] = response_buffer[word];
 		resource_result->command_consumed =
-			read32(bar, dsp_banks[0] + 0x28) == expected_command_position;
+			read32(bar, dsp_banks[target_dsp] + 0x28) == expected_command_position;
 		resource_result->response_consumed =
-			read32(bar, dsp_banks[0] + 0x40 + 0x28) ==
+			read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
 			expected_response_position;
 		resource_result->accepted = resource_result->command_consumed &&
 			resource_result->response_consumed &&
@@ -663,17 +837,17 @@ int main(int argc, char **argv)
 			uint32_t expected_command_position = command_position + 1;
 			unsigned int poll;
 
-			write32(bar, dsp_banks[0] + 0x24, expected_command_position);
-			write32(bar, dsp_banks[0] + 0x20, expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x24, expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x20, expected_command_position);
 			write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
 			for (poll = 0; poll < RESOURCE_WAIT_MS && !interrupted; poll++) {
-				if (read32(bar, dsp_banks[0] + 0x28) ==
+				if (read32(bar, dsp_banks[target_dsp] + 0x28) ==
 				    expected_command_position)
 					break;
 				nanosleep(&delay, NULL);
 			}
 			zero_polls[zero_index] = poll;
-			if (read32(bar, dsp_banks[0] + 0x28) !=
+			if (read32(bar, dsp_banks[target_dsp] + 0x28) !=
 			    expected_command_position) {
 				allocation_commands_consumed = false;
 				break;
@@ -685,25 +859,116 @@ int main(int argc, char **argv)
 		    zero_consumed_count == ZERO_COMMAND_COUNT && !interrupted) {
 			uint32_t expected_command_position = command_position + 1;
 
-			write32(bar, dsp_banks[0] + 0x24, expected_command_position);
-			write32(bar, dsp_banks[0] + 0x20, expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x24, expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x20, expected_command_position);
 			write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
 			for (memspec_polls = 0;
 			     memspec_polls < RESOURCE_WAIT_MS && !interrupted;
 			     memspec_polls++) {
-				if (read32(bar, dsp_banks[0] + 0x28) ==
+				if (read32(bar, dsp_banks[target_dsp] + 0x28) ==
 				    expected_command_position)
 					break;
 				nanosleep(&delay, NULL);
 			}
-			memspec_consumed = read32(bar, dsp_banks[0] + 0x28) ==
+			memspec_consumed = read32(bar, dsp_banks[target_dsp] + 0x28) ==
 				expected_command_position;
 			if (memspec_consumed)
 				command_position = expected_command_position;
 		}
 	}
 
-	if (all_accepted && accepted_count == RESOURCE_COUNT &&
+	if (process_probe && all_accepted && accepted_count == RESOURCE_COUNT &&
+	    allocation_commands_consumed &&
+	    zero_consumed_count == ZERO_COMMAND_COUNT && memspec_consumed &&
+	    !interrupted) {
+		uint32_t expected_command_position = command_position +
+			process_ticks * (PROCESS_CHANNELS + 1);
+		uint32_t expected_response_position = response_position +
+			process_ticks * PROCESS_CHANNELS;
+		unsigned int channel, tick;
+
+		process_requested = true;
+		if (read32(bar, property_7_offsets[target_dsp]) != PROCESS_PROPERTY_7) {
+			fprintf(stderr, "experiment-040: target DSP property 7 changed\n");
+		} else {
+			write32(bar, dsp_banks[target_dsp] + 0x40 + 0x24,
+				expected_response_position);
+			write32(bar, dsp_banks[target_dsp] + 0x40 + 0x20,
+				expected_response_position);
+			write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
+			write32(bar, dsp_banks[target_dsp] + 0x24,
+				expected_command_position);
+			write32(bar, dsp_banks[target_dsp] + 0x20,
+				expected_command_position);
+			write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
+			for (process_polls = 0;
+			     process_polls < PROCESS_WAIT_MS && !interrupted;
+			     process_polls++) {
+				if (read32(bar, dsp_banks[target_dsp] + 0x28) ==
+				    expected_command_position &&
+				    read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
+				    expected_response_position)
+					break;
+				nanosleep(&delay, NULL);
+			}
+			__sync_synchronize();
+			process_commands_consumed =
+				read32(bar, dsp_banks[target_dsp] + 0x28) ==
+				expected_command_position;
+			process_responses_consumed =
+				read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
+				expected_response_position;
+			process_outputs_observed = true;
+			process_response_headers_valid = true;
+			process_input_roundtrip_valid = impulse_probe;
+			for (tick = 0; tick < process_ticks; tick++) {
+				for (channel = 0; channel < PROCESS_CHANNELS; channel++) {
+					unsigned int page = tick * PROCESS_CHANNELS + channel;
+					const uint32_t *input = (const uint32_t *)(memory +
+						(PROCESS_INPUT_PAGE_BASE + page) * PAGE_SIZE_4K);
+					const uint32_t *output = (const uint32_t *)(memory +
+						(PROCESS_OUTPUT_PAGE_BASE + page) * PAGE_SIZE_4K);
+					const uint32_t *before = (const uint32_t *)(snapshot +
+						(PROCESS_OUTPUT_PAGE_BASE + page) * PAGE_SIZE_4K);
+
+					for (word = 0; word < PROCESS_OUTPUT_DWORDS; word++)
+						if (output[word] != before[word])
+							process_changed_dwords[tick][channel]++;
+					for (word = 4; word < PROCESS_OUTPUT_DWORDS; word++)
+						if (output[word] != 0)
+							process_nonzero_audio[tick][channel]++;
+					memcpy(process_response_headers[tick][channel], output,
+					       sizeof(process_response_headers[tick][channel]));
+					process_response_tails[tick][channel] =
+						output[PROCESS_OUTPUT_DWORDS - 1];
+					process_output_hashes[tick][channel] = fnv1a32(output + 4,
+						PROCESS_OUTPUT_DWORDS - 4);
+					memcpy(process_output_preview[tick][channel], output + 4,
+					       sizeof(process_output_preview[tick][channel]));
+					if (process_changed_dwords[tick][channel] == 0)
+						process_outputs_observed = false;
+					if (process_response_headers[tick][channel][0] != 0x80020044U ||
+					    process_response_headers[tick][channel][1] != tick + 1 ||
+					    process_response_headers[tick][channel][2] != channel ||
+					    process_response_headers[tick][channel][3] !=
+						PROCESS_RESPONSE_MARKER)
+						process_response_headers_valid = false;
+					if (impulse_probe && tick == 0 &&
+					    memcmp(output + 4, input + 2,
+						   (PROCESS_OUTPUT_DWORDS - 4) * sizeof(uint32_t)) != 0)
+						process_input_roundtrip_valid = false;
+					if (tick > 0 && process_nonzero_audio[tick][channel] != 0)
+						process_tail_observed = true;
+				}
+			}
+			if (process_commands_consumed)
+				command_position = expected_command_position;
+			if (process_responses_consumed)
+				response_position = expected_response_position;
+		}
+	}
+
+	if (!process_probe && all_accepted && accepted_count == RESOURCE_COUNT &&
 	    (!allocation_probe ||
 	     (allocation_commands_consumed &&
 	      zero_consumed_count == ZERO_COMMAND_COUNT && memspec_consumed)) &&
@@ -714,19 +979,19 @@ int main(int argc, char **argv)
 		uint32_t expected_response_position = response_position + 1;
 
 		readback_requested = true;
-		write32(bar, dsp_banks[0] + 0x40 + 0x24,
+		write32(bar, dsp_banks[target_dsp] + 0x40 + 0x24,
 			expected_response_position);
-		write32(bar, dsp_banks[0] + 0x40 + 0x20,
+		write32(bar, dsp_banks[target_dsp] + 0x40 + 0x20,
 			expected_response_position);
 		write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
-		write32(bar, dsp_banks[0] + 0x24, expected_command_position);
-		write32(bar, dsp_banks[0] + 0x20, expected_command_position);
+		write32(bar, dsp_banks[target_dsp] + 0x24, expected_command_position);
+		write32(bar, dsp_banks[target_dsp] + 0x20, expected_command_position);
 		write32(bar, INTERRUPT_ENABLE, interrupt_shadow);
 		for (readback_polls = 0;
 		     readback_polls < READBACK_WAIT_MS && !interrupted;
 		     readback_polls++) {
-			if (read32(bar, dsp_banks[0] + 0x28) == expected_command_position &&
-			    read32(bar, dsp_banks[0] + 0x40 + 0x28) ==
+			if (read32(bar, dsp_banks[target_dsp] + 0x28) == expected_command_position &&
+			    read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
 				expected_response_position &&
 			    response_buffer[0] != 0xa5a5a5a5U)
 				break;
@@ -735,17 +1000,20 @@ int main(int argc, char **argv)
 		__sync_synchronize();
 		for (word = 0; word < READBACK_RESPONSE_WORDS; word++)
 			readback_response[word] = response_buffer[word];
-		readback_command_consumed = read32(bar, dsp_banks[0] + 0x28) ==
+		readback_command_consumed = read32(bar, dsp_banks[target_dsp] + 0x28) ==
 			expected_command_position;
 		readback_response_consumed = read32(bar,
-			dsp_banks[0] + 0x40 + 0x28) == expected_response_position;
+			dsp_banks[target_dsp] + 0x40 + 0x28) == expected_response_position;
 		readback_observed = response_buffer[0] != 0xa5a5a5a5U;
 	}
 
 	ready_after = all_ready(bar);
-	for (dsp = 1; dsp < DSP_COUNT; dsp++) {
+	for (dsp = 0; dsp < DSP_COUNT; dsp++) {
 		uint32_t command_base = dsp_banks[dsp];
 		uint32_t response_base = command_base + 0x40;
+
+		if (dsp == target_dsp)
+			continue;
 
 		if (read32(bar, command_base + 0x20) != 0 ||
 		    read32(bar, command_base + 0x24) != 0 ||
@@ -755,17 +1023,23 @@ int main(int argc, char **argv)
 		    read32(bar, response_base + 0x28) != 0)
 			non_target_indices_unchanged = false;
 	}
-	writes_bounded = memory_writes_bounded(memory, snapshot);
+	writes_bounded = memory_writes_bounded(memory, snapshot, process_probe,
+		process_ticks);
 	if (cleanup_probe) {
 		if (!interrupted && unload_consumed_count == RESOURCE_COUNT &&
 		    ready_after && non_target_indices_unchanged && writes_bounded)
 			result = EXIT_SUCCESS;
-	} else if (!interrupted && all_accepted &&
-		   accepted_count == RESOURCE_COUNT &&
-		   (!allocation_probe ||
-		    (allocation_commands_consumed &&
-		     zero_consumed_count == ZERO_COMMAND_COUNT && memspec_consumed)) &&
-		   ready_after && non_target_indices_unchanged && writes_bounded) {
+		} else if (!interrupted && all_accepted &&
+			   accepted_count == RESOURCE_COUNT &&
+			   (!allocation_probe ||
+			    (allocation_commands_consumed &&
+			     zero_consumed_count == ZERO_COMMAND_COUNT && memspec_consumed)) &&
+			   (!process_probe ||
+			    (process_requested && process_commands_consumed &&
+			     process_responses_consumed && process_outputs_observed &&
+			     process_response_headers_valid &&
+			     (!impulse_probe || process_input_roundtrip_valid))) &&
+			   ready_after && non_target_indices_unchanged && writes_bounded) {
 		result = EXIT_SUCCESS;
 	}
 
@@ -803,9 +1077,13 @@ cleanup:
 	printf("{\n");
 	printf("  \"experiment\": \"%s\",\n",
 	       cleanup_probe ? "033-realverb-resource-cleanup" :
+	       stream_probe ? "044-realverb-eight-tick-impulse-stream" :
+	       impulse_probe ? "042-realverb-impulse-buffer-job" :
+	       isolation_trial ? "041-realverb-bounded-process-isolation-trial" :
+	       process_probe ? "040-realverb-bounded-dsp0-process" :
 	       allocation_probe ? "034-realverb-allocation-and-memspec" :
 	       "032-complete-realverb-resource-pass");
-	printf("  \"target_dsp\": 0,\n");
+	printf("  \"target_dsp\": %u,\n", target_dsp);
 	printf("  \"resource_count\": %u,\n", RESOURCE_COUNT);
 	printf("  \"accepted_count\": %u,\n", accepted_count);
 	printf("  \"all_resources_accepted\": %s,\n",
@@ -857,6 +1135,54 @@ cleanup:
 	printf("  \"memspec_polls_ms\": %u,\n", memspec_polls);
 	printf("  \"memspec_consumed\": %s,\n",
 	       memspec_consumed ? "true" : "false");
+	printf("  \"process_requested\": %s,\n",
+	       process_requested ? "true" : "false");
+	printf("  \"process_command\": [\"0x%08x\", \"0x%08x\", \"0x%08x\", \"0x%08x\"],\n",
+	       PROCESS_COMMAND_BASE | PROCESS_COMMAND_DWORDS, PROCESS_FLAGS, 1U,
+	       PROCESS_PLUGIN_ADDRESS);
+	printf("  \"process_property_7\": \"0x%08x\",\n", PROCESS_PROPERTY_7);
+	printf("  \"process_ticks\": %u,\n", process_ticks);
+	printf("  \"process_input_pattern\": \"%s\",\n",
+	       stream_probe ? "opposed-half-scale-impulse-then-seven-zero-ticks" :
+	       impulse_probe ? "stereo-opposed-half-scale-impulse" : "stereo-zero");
+	printf("  \"process_polls_ms\": %u,\n", process_polls);
+	printf("  \"process_commands_consumed\": %s,\n",
+	       process_commands_consumed ? "true" : "false");
+	printf("  \"process_responses_consumed\": %s,\n",
+	       process_responses_consumed ? "true" : "false");
+	printf("  \"process_outputs_observed\": %s,\n",
+	       process_outputs_observed ? "true" : "false");
+	printf("  \"process_response_headers_valid\": %s,\n",
+	       process_response_headers_valid ? "true" : "false");
+	printf("  \"process_input_roundtrip_valid\": %s,\n",
+	       process_input_roundtrip_valid ? "true" : "false");
+	printf("  \"post_impulse_tail_observed\": %s,\n",
+	       process_tail_observed ? "true" : "false");
+	printf("  \"process_outputs\": [\n");
+	for (resource_index = 0; resource_index < process_ticks; resource_index++) {
+		for (word = 0; word < PROCESS_CHANNELS; word++)
+			printf("    {\"tick\": %u, \"channel\": %u, "
+			       "\"changed_dwords\": %u, \"nonzero_audio_dwords\": %u, "
+			       "\"header\": [\"0x%08x\", \"0x%08x\", \"0x%08x\", \"0x%08x\"], "
+			       "\"audio_preview\": [\"0x%08x\", \"0x%08x\", \"0x%08x\", \"0x%08x\"], "
+			       "\"audio_fnv1a32\": \"0x%08x\", \"tail\": \"0x%08x\"}%s\n",
+			       resource_index, word,
+			       process_changed_dwords[resource_index][word],
+			       process_nonzero_audio[resource_index][word],
+			       process_response_headers[resource_index][word][0],
+			       process_response_headers[resource_index][word][1],
+			       process_response_headers[resource_index][word][2],
+			       process_response_headers[resource_index][word][3],
+			       process_output_preview[resource_index][word][0],
+			       process_output_preview[resource_index][word][1],
+			       process_output_preview[resource_index][word][2],
+			       process_output_preview[resource_index][word][3],
+			       process_output_hashes[resource_index][word],
+			       process_response_tails[resource_index][word],
+			       resource_index + 1 == process_ticks &&
+			       word + 1 == PROCESS_CHANNELS ? "" : ",");
+	}
+	printf("  ],\n");
 	printf("  \"readback_requested_after_complete_pass\": %s,\n",
 	       readback_requested ? "true" : "false");
 	printf("  \"readback_address_dwords\": \"0x%08x\",\n",

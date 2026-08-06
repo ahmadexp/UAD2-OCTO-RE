@@ -1,12 +1,18 @@
 # Experiment 026: deadline-safe RealVerb resource sequence
 
-## Result
+## Historical result and correction
 
-The first resource object associated with the failing RealVerb-Pro sequence is
-now identified: resource `0x12b`. Its response target remained all zero at
+This capture identified resource `0x12b` as the first unanswered object in one
+official RealVerb-Pro attempt. Its response target remained all zero at
 40.997 ms, 82.261 ms, and 141.023 ms. Every sample is well inside the official
 loader's 600 ms wait window, and the official host reported `-38`, the exact
 host mapping for an all-zero resource response.
+
+Later Linux experiments accepted `0x12b`, then accepted all 13 resources in the
+same order with exact correlated responses. The allocation and Process path was
+also completed. Therefore `0x12b` is not an intrinsically failing object. This
+experiment localizes the first missing response in that historical host state;
+it does not identify a bad resource in RealVerb's container.
 
 The complete first pass contains 13 resources in this order:
 
@@ -16,9 +22,9 @@ The complete first pass contains 13 resources in this order:
 
 The official host repeated the same order once. All 26 paired resource
 response targets remained zero through their 100 ms requested sample, with a
-maximum actual sampling time of 143.449 ms. The first failing object is
-therefore `0x12b`, not the later large `0xd1` object and not an unidentified
-status command.
+maximum actual sampling time of 143.449 ms. At the time, `0x12b` was the first
+observable failure boundary. Experiments 032 and 043 supersede any stronger
+interpretation.
 
 ## First object
 
@@ -60,9 +66,9 @@ RealVerb sequence. These results are not contradictory: resource identity is
 only one input to a stateful DSP loader, and Experiment 025 did not prove a
 complete RealVerb program.
 
-The important new localization is that RealVerb's failing sequence begins with
-an unanswered `0x12b` object. It does not support replaying later objects as a
-standalone program.
+The historical localization is that this attempt begins with an unanswered
+`0x12b` object. Later acceptance proves that the failure was stateful and not a
+property of the object itself.
 
 ## Publication boundary and recovery
 

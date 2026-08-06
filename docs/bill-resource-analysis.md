@@ -155,16 +155,9 @@ resources returned the exact intermediate-success form, including resources
 `0xf9`, `0xbf`, and `0xd1`, whose command targets each required two page-bounded
 DMA descriptors. The response for every object echoed both its resource ID
 and envelope command. Completion times ranged from 1 to 5 ms. This proves the
-full captured resource sequence is accepted under the resident framework; it
-does not prove allocation finalization, activation, or execution.
-
-The complete pass also revealed that device and transport reset are not an
-application-level unload oracle. A later `0x12b` reload and query 026 were
-consumed without responses. The exact 13-command pool-zero cleanup list was
-then consumed, but a second reload still received no response. The public
-driver confirms each cleanup as `0x00030002`, resource ID, zero, and zero, yet
-consumption does not prove the DSP-side registry was cleared. A fresh official
-activation is now required before replaying allocation metadata.
+full captured resource sequence is accepted under the resident framework.
+Later experiments captured and reproduced the missing allocation and Process
+stages.
 
 The offline tool can construct the exact envelope when a known allocation
 offset and pool direction are supplied:
@@ -220,6 +213,21 @@ mapped resource address, and pairs it with a mapped private-resource
 destination. This proves host runtime address patching, but it does not reveal
 the authenticated inner body's segments, DSP-side relocations, reservations,
 or entry point.
+
+Further hash-locked analysis closes the Process object pointer. During
+`CPluginInstance::SetDSPResourceManager`, the host resolves the first private
+resource and stores its mapped address at plug-in object offset `0x0bd8`.
+`CPluginInstance::Process` places that value in word three of its four-dword
+main command. In the captured RealVerb allocation, the correct value is
+`0x0009d00a`. The previously tested `0x000e0000` is the first public Bill
+allocation and produces input-independent output garbage.
+
+Experiments 043 and 044 use the correct private pointer. A zero input returns
+zero. An opposed half-scale stereo impulse returns exactly, with response
+header `0x80020044`, matching request ID and channel, and marker `0xf001000e`.
+Seven later zero ticks also return zero. This establishes the official
+program-visible buffer and completion path. It does not decode the inner
+program or prove wet RealVerb processing.
 
 This rules out recovering segments, relocations, or entry points by calling an
 unnoticed host parser. The remaining evidence path is the DSP-side consumer:
@@ -295,6 +303,15 @@ or another keyed encoding, but do not identify which. In particular, they do
 not reveal a key, authentication rule, relocation table, segment table, or
 entry point. Those rules remain on the DSP-side consumer path.
 
+The exact RealVerb DLL provides a tighter plug-in-specific comparison: 13
+adjacent generation-1/generation-2 pairs whose generation-2 IDs are precisely
+`12b, eb, c1, a5, 120, bd, 11f, d0, f9, bf, 11e, 11d, d1`. All 13 pairs retain
+the same preserved size and nine retain the same file size. Their overlapping
+cores have mean equal-byte fraction 0.003178 and mean XOR entropy 7.588078 bits
+per byte. No standard decompressor, repeated aligned block, or tested standard
+digest explains the inner objects. This reinforces the cryptographic-boundary
+conclusion without publishing any resource bytes.
+
 Experiment 029 adds a dynamic constraint. For resource `0x12b`, the 432-byte
 body is a 48-byte preserved prefix plus a 384-byte trailing core. One-bit
 changes at the first and last prefix bytes and at the first, last, and two
@@ -318,13 +335,16 @@ Confirmed statically and, where noted, dynamically:
   submission of `0x12b` independently to all eight DSPs.
 - Dynamic integrity or authentication coverage over both regions of the
   `0x12b` body.
+- Exact 13-resource allocation, private-resource map, first-private-resource
+  Process pointer, input/output layout, and request-correlated completion.
+- Normal authorized buffer execution independently on all eight DSPs.
 
 Still unresolved:
 
 - The preserved inner-core encoding.
 - Segment and relocation records inside that core, if any.
 - Integrity or authentication algorithm and key source.
-- Entry points and inner memory reservations for a complete OCTO program.
+- Entry points and inner memory reservations for a user-authored OCTO program.
 
 The loader findings are independently checked by the hash-locked verifier:
 

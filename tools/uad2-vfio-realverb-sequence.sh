@@ -7,12 +7,21 @@ DRIVER="/sys/bus/pci/drivers/vfio-pci"
 PROBE="/tmp/uad2-vfio-realverb-sequence"
 
 MODE=""
+TARGET_DSP=""
 if [ "$#" -eq 1 ] && [ "$1" = "--cleanup" ]; then
 	MODE="$1"
 	shift
-elif [ "$#" -eq 2 ] && [ "$1" = "--allocation" ]; then
+elif [ "$#" -eq 2 ] &&
+     { [ "$1" = "--allocation" ] || [ "$1" = "--process" ]; }; then
 	MODE="$1"
 	shift
+elif [ "$#" -eq 3 ] &&
+     { [ "$1" = "--process-dsp" ] ||
+       [ "$1" = "--process-impulse-dsp" ] ||
+       [ "$1" = "--process-stream-dsp" ]; }; then
+	MODE="$1"
+	TARGET_DSP="$2"
+	shift 2
 fi
 if [ "$(id -u)" -ne 0 ] ||
    { [ "$MODE" = "--cleanup" ] && [ "$#" -ne 0 ]; } ||
@@ -28,10 +37,29 @@ if [ "$MODE" != "--cleanup" ] &&
 	exit 1
 fi
 if [ "$MODE" != "--cleanup" ] &&
-   [ "${UAD2_ALLOW_ONE_SHOT_RESOURCE_PASS-}" !=
-     "YES_I_ACCEPT_OFFICIAL_REACTIVATION_MAY_BE_REQUIRED" ]; then
+	[ "${UAD2_ALLOW_ONE_SHOT_RESOURCE_PASS-}" != \
+	  "YES_I_ACCEPT_OFFICIAL_REACTIVATION_MAY_BE_REQUIRED" ]; then
 	echo "refusing: set the one-shot resource-pass acknowledgement" >&2
 	exit 1
+fi
+if [ "$MODE" = "--process" ] &&
+   [ "${UAD2_ALLOW_BOUNDED_PROCESS-}" != \
+     "YES_I_ACCEPT_ONE_64_SAMPLE_REALVERB_PROCESS" ]; then
+	echo "refusing: set the bounded Process acknowledgement" >&2
+	exit 1
+fi
+if [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-impulse-dsp" ] ||
+   [ "$MODE" = "--process-stream-dsp" ]; then
+	case "$TARGET_DSP" in
+		0|1|2|3|4|5|6|7) ;;
+		*) echo "refusing: target DSP must be 0 through 7" >&2; exit 1 ;;
+	esac
+	if [ "${UAD2_ALLOW_BOUNDED_PROCESS-}" != \
+	     "YES_I_ACCEPT_ONE_64_SAMPLE_REALVERB_PROCESS" ]; then
+		echo "refusing: set the bounded Process acknowledgement" >&2
+		exit 1
+	fi
 fi
 
 verify_chunk() {
@@ -63,7 +91,10 @@ if [ "$MODE" != "--cleanup" ]; then
 	verify_chunk boundary-0024/command-0016-target.bin 17d79a7db9af334375b2f8b68f9640413f08becb04f52f59e4b8f3bf2b702914
 	verify_chunk boundary-0024/command-0017-target.bin 91a2ef99d9afd44c3001c68b6a7b396cfb18410ed6e0c13ac2730afe5f623da9
 fi
-if [ "$MODE" = "--allocation" ]; then
+if [ "$MODE" = "--allocation" ] || [ "$MODE" = "--process" ] ||
+   [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-impulse-dsp" ] ||
+   [ "$MODE" = "--process-stream-dsp" ]; then
 	verify_chunk boundary-0058/command-0051-target.bin fe326c8a6a7d0b40e7958c14debe8ea1bc8d0fb160f7816bbaf9899b83590e84
 fi
 
@@ -135,9 +166,19 @@ set -- \
 	"$CAPTURE_ROOT/boundary-0022/command-0015-target.bin" \
 	"$CAPTURE_ROOT/boundary-0024/command-0016-target.bin" \
 	"$CAPTURE_ROOT/boundary-0024/command-0017-target.bin"
-if [ "$MODE" = "--allocation" ]; then
-	"$PROBE" "$MODE" "$@" \
-		"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+if [ "$MODE" = "--allocation" ] || [ "$MODE" = "--process" ] ||
+   [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-impulse-dsp" ] ||
+   [ "$MODE" = "--process-stream-dsp" ]; then
+	if [ "$MODE" = "--process-dsp" ] ||
+	   [ "$MODE" = "--process-impulse-dsp" ] ||
+	   [ "$MODE" = "--process-stream-dsp" ]; then
+		"$PROBE" "$MODE" "$TARGET_DSP" "$@" \
+			"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+	else
+		"$PROBE" "$MODE" "$@" \
+			"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+	fi
 else
 	"$PROBE" "$@"
 fi

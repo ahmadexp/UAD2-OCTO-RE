@@ -84,24 +84,25 @@
   rather than peak floating-point rate alone. We specify matched workloads,
   correctness requirements, optimized baselines, measurement procedures, and
   a decision rule for identifying crossover regions. The present UAD stack
-  initializes all command and response rings, receives a valid Linux-controlled
-  framework response, and submits one integrity-protected resource independently
-  to all eight DSPs. It also completes the captured 13-resource RealVerb pass
-  on DSP0. Static analysis recovers the host runtime address-patch
-  and resource-readback builders, although a bounded standalone readback
-  produced no response. The inner executable, DSP-side relocation, entry-point,
-  and buffer rules remain unresolved, so it has not completed a general-purpose
-  program.
+  initializes all command and response rings, loads the exact authenticated
+  13-resource RealVerb allocation, and submits a bounded 64-sample stereo
+  buffer job independently to all eight DSPs. Input samples return bit-for-bit
+  with counter- and channel-correlated completion records, while non-target
+  ring indices remain unchanged. The Linux ABI now implements owned buffers,
+  authorized program loading, synchronous submission, and completion retrieval.
+  The inner executable, authentication or encryption algorithm, DSP-side
+  relocation, entry point, and runtime reservations remain unresolved, so the
+  stack cannot load user-authored general-purpose code.
   Therefore, this version is a study design and does not claim a measured UAD
   performance advantage. Its central contribution is a falsifiable protocol
   that can support such a claim if, and only if, the resulting data satisfy the
   preregistered criteria.
   \end{abstract}
 
-  \statusbox{The repository contains no completed UAD program and no completed
-  UAD-versus-GPU comparison. All comparative outcomes in this manuscript are
-  hypotheses. A results paper must replace this status with
-  correctness-checked measurements.}
+  \statusbox{The repository contains a completed authorized UAD buffer job but
+  no user-authored general-purpose program and no completed UAD-versus-GPU
+  comparison. All comparative outcomes in this manuscript are hypotheses. A
+  results paper must replace this status with correctness-checked measurements.}
   \vspace{0.6em}
 \end{@twocolumnfalse}
 ]
@@ -140,7 +141,7 @@ tail behavior rather than averages alone, and includes workloads expected to
 favor the GPU. The intended contribution is a map of the crossover boundary,
 not a collection of hand-picked wins.
 
-\paragraph{Contributions after execution is available.}
+\paragraph{Contributions required for the comparison.}
 The completed paper is intended to provide:
 
 \begin{enumerate}
@@ -154,9 +155,11 @@ The completed paper is intended to provide:
   statefulness, and GPU contention.
 \end{enumerate}
 
-At present, the first contribution's transport, valid-response, authenticated
-resource-loader targeting, and empty-engine recovery components are established.
-Entry-point execution and bounded program output are not \cite{uad-project}.
+At present, the first contribution is established for an authorized official
+allocation: the stack performs authenticated loading, bounded input and output,
+completion correlation, per-engine targeting, and recovery. User-authored
+entry-point execution remains unavailable because the inner program format and
+authentication rules are unresolved \cite{uad-project}.
 
 \section{Research Questions and Claims}
 
@@ -218,8 +221,9 @@ All-eight ring and DMA transport startup & Confirmed & All 16 rings and 64 pages
 Per-DSP reset on an empty transport & Confirmed & Each engine can be pulsed and returned to its baseline without changing the other seven. \\
 Valid runtime response & Confirmed & Linux query 026 returns the exact five-dword response form in 1 ms; the official path also returns a decoded 768-entry authorization table. \\
 Authenticated resource transport & Confirmed & Exact resource \texttt{0x12b} succeeds on DSP0 through DSP7; all 13 resources in the captured RealVerb pass succeed on DSP0; sampled one-bit changes are rejected. \\
-Host runtime address patch and readback ABI & Confirmed & The official host resolves selected-resource offsets through \texttt{0x00150000} and constructs \texttt{0x000c0004} readbacks; a standalone bounded request produced no response. \\
-General-purpose program and bounded output & Not achieved & No UAD workload can yet be compared for correctness or speed. \\
+Host allocation and Process ABI & Confirmed & The official host stores the first private mapped resource at instance offset \texttt{0xbd8} and places that address in word 3 of command \texttt{0x000b0004}. \\
+Authorized bounded buffer execution & Confirmed & A 64-sample stereo job completes with exact zero and opposed half-scale impulse round trips independently on DSP0 through DSP7. \\
+User-authored general-purpose program & Not achieved & The captured official program is not a controlled implementation of a benchmark kernel, so no matched UAD workload can yet be compared for speed. \\
 GPU comparison dataset & Not achieved & A preliminary affine baseline does not provide a matched UAD result, power trace, or crossover dataset. \\
 \bottomrule
 \end{tabularx}
@@ -253,31 +257,33 @@ results prove response transport, whole-body integrity enforcement, and loader
 targeting. They do not reveal the clear executable or activate an entry point
 \cite{uad-project}.
 
-Static analysis of the plug-in runtime further identifies a fixed
+Static analysis of the plug-in runtime identifies a fixed
 \texttt{0x0af0}-byte allocation record, 16-byte memory-spec entries, 8-byte
-readback specs, command class \texttt{0x00150000} for mapped-address patching,
-and command \texttt{0x000c0004} for resource readback. A Linux trial issued the
-fixed four-dword readback at the accepted \texttt{0x12b} mapping. The command
-was consumed, but its six-dword response descriptor remained untouched through
-the deadline. Thus the host ABI is known, while a complete \texttt{Process}
-transaction or activation state remains a prerequisite candidate
-\cite{uad-project}.
+readback specs, and mapped-address patching through command class
+\texttt{0x00150000}. The complete first RealVerb allocation contains 13
+authenticated objects. Every object returns a resource- and command-correlated
+\texttt{0x80070004} completion in 1 to 5 ms, including three objects carried by
+two page-bounded DMA descriptors. There is consequently no failing object in
+the captured RealVerb resource sequence \cite{uad-project}.
 
-A subsequent bounded replay submitted the complete first RealVerb resource
-pass. All 13 objects returned exact resource- and command-correlated
-\texttt{0x80070004} completions in 1 to 5 ms, including three objects carried
-by two page-bounded DMA descriptors. A fixed readback after the thirteenth
-success was again consumed without a response. Incomplete resource loading is
-therefore ruled out, but no process entry or output is established
-\cite{uad-project}.
+Hash-locked static analysis also resolves the missing Process pointer. The
+official runtime stores the mapped address of the first private allocation at
+plug-in-instance offset \texttt{0xbd8}; for the captured allocation that address
+is \texttt{0x0009d00a}. It places the address in word 3 of
+\texttt{0x000b0004 0x00400000 <request-id> <private-address>}. Earlier trials
+used the first public allocation and are retained only as negative controls:
+their zero and impulse outputs were identical and therefore were not evidence
+of execution \cite{uad-project}.
 
-The complete-pass state was not reusable. A later resource reload and query
-\texttt{0x00260001} were consumed without responses. All 13 exact pool-zero
-unload commands were then consumed, and the isolated per-DSP reset sequence
-passed, but the runtime service remained unanswered. No private-resource
-zeroing or memory-spec update was submitted. Fresh official plug-in activation
-is therefore a prerequisite for the next allocation trial
-\cite{uad-project}.
+With the corrected pointer, a zero input produces a zero output and an opposed
+half-scale stereo impulse returns bit-for-bit through the 64-sample buffers. The
+completion begins \texttt{0x80020044} and correlates the request counter and
+channel; seven following zero ticks also return zero. Repeating the complete
+allocation and job independently on DSP0 through DSP7 leaves all non-target
+ring indices unchanged. A one-byte authenticated-resource mutation is rejected,
+after which the exact bundle succeeds without a cold reboot. These results close
+the official program-buffer path, but they neither expose the encrypted inner
+executable nor establish a user-controlled DSP entry point \cite{uad-project}.
 
 The processor identification is now direct at the component level. All eight
 packages visibly carry \texttt{ADSP-21469} and \texttt{KBCZ-00}; the central
@@ -491,20 +497,17 @@ reset-isolation advantage is not described as faster computation.
 
 \section{Results Status and Required Presentation}
 
-No comparative result exists yet. The current API intentionally returns
-\texttt{-EOPNOTSUPP} for buffer allocation, program loading, submission, and
-waiting. A valid response and authenticated resource completion are no longer
-the blockers, and the complete captured resource pass now succeeds. The
-remaining gate is a decoded OCTO executable with proven
-segments, DSP-side relocations, entry point, reserved ranges, and
-program-visible buffer semantics. The recovered host address-patch layer does
-not satisfy this gate. It must first run as a bounded DSP0 heartbeat, followed by the affine
-transform. The results section must remain empty of performance claims until
-those gates pass.
-
-The current live card also requires official runtime reactivation before the
-allocation experiment can resume. Transport readiness and reset success are
-not treated as application-service readiness.
+No comparative result exists yet. ABI version 2 now implements coherent input
+and output buffers, exact authorized RealVerb loading, synchronous submission,
+and completion retrieval. The captured allocation completes and one opposed
+half-scale stereo impulse returns exactly through 64-sample buffers on every
+DSP. This closes the host buffer semantics needed for the official workload.
+The remaining gate is a user-authored OCTO executable with proven segments,
+DSP-side relocations, entry point, reserved ranges, and lawful authentication.
+The captured official job cannot substitute for the affine benchmark because
+its instruction stream is not controlled by the experiment. The results
+section must remain empty of performance claims until a matched custom
+transform and the baselines pass correctness checks.
 
 When measurements are available, the paper should present four views:
 
@@ -522,15 +525,15 @@ removed.
 
 \section{Isolation and Robustness}
 
-The OCTO exposes eight engines with independently exercised empty-transport
-reset paths. Authenticated loader targeting is now proven on all eight engines:
-the selected engine consumes the exact object while all seven non-target ring
-index sets remain unchanged. Program-level execution isolation is not yet
-proven. After correctness and single-DSP performance are established, each DSP
-is tested under normal
-completion, program timeout, response timeout, process exit, malformed program
-rejection, and an IOMMU-contained fault. Status, ring indices, and output
-buffers for all other DSPs are recorded before and after each case.
+The OCTO exposes eight engines with independently exercised reset paths. Normal
+authorized program-buffer execution is now proven on all eight engines: the
+selected engine completes an exact input-dependent output while all seven
+non-target ring-index sets remain unchanged. A mutated authenticated object is
+rejected, the card recovers, and an unchanged retry succeeds. Hostile custom
+program isolation is not yet testable. After a user-authored transform is
+available, each DSP is tested under program timeout, response timeout, process
+exit, and an IOMMU-contained fault. Status, ring indices, and output buffers for
+all other DSPs are recorded before and after each case.
 
 Robustness is reported as availability and recovery behavior, not folded into
 kernel latency. A separate service-level experiment may compare the useful
@@ -600,18 +603,15 @@ deadline misses. The most plausible GPU region contains large, parallel,
 compute-dense workloads. This manuscript defines how to locate that boundary
 without converting an architectural intuition into an unsupported result.
 
-The paper is ready to accumulate comparative measurements only after a harmless
-program produces bounded output and the result survives reset and IOMMU
-cleanup. Valid Linux runtime and resource-success responses have now been
-observed, body-wide integrity enforcement is demonstrated, and authenticated
-loader targeting passes on all eight DSPs. All 13 resources in the captured
-RealVerb pass also succeed on DSP0. The host runtime address-patch and
-readback builders are also recovered, but bounded standalone readback did not
-produce a response, and the current runtime requires fresh official activation.
-Until the inner executable, DSP-side relocation,
-entry-point, and buffer rules are recovered, the defensible finding
-is the transport, resource-loader, and isolation foundation, not performance
-superiority.
+The authorized RealVerb allocation now produces bounded, input-dependent output
+and survives reset and IOMMU cleanup on all eight targets. The host runtime
+address-patch, first-private-resource Process pointer, buffer objects, request
+correlation, completion record, and normal target isolation are recovered. A
+one-byte resource mutation is rejected and recovery permits an immediate exact
+retry. Until the inner executable, authentication or encryption algorithm,
+DSP-side relocation, entry point, and runtime reservations are recovered, the
+defensible finding is an authorized-workload execution and isolation
+foundation, not general-purpose performance superiority.
 
 {\footnotesize
 \bibliographystyle{plain}

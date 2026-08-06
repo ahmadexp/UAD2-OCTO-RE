@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "scope": "sanitized metadata for Experiments 039 through 047",
+  "private_payload_bytes_published": false,
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "fpga_revision": "0xa012dc0d",
+    "dsp_count": 8
+  },
+  "experiment_039_realverb_corpus": {
+    "dll_sha256": "26b27e8e5e31bdae054ba748f559d874332f4281760d6723ca6f1c93d42c61e8",
+    "vst3_sha256": "4b530989688eabdc39c6650499b7784fb240841bf886f7580ec82febb7105f37",
+    "private_metadata_sha256": "ef1396d4a6e863759facf13da850b38de8a2d0c08eb30ce3615bd151e57d422d",
+    "resource_instances": 26,
+    "generation_1_2_pairs": 13,
+    "generation_2_resource_ids": [
+      "0x12b", "0x0eb", "0x0c1", "0x0a5", "0x120", "0x0bd",
+      "0x11f", "0x0d0", "0x0f9", "0x0bf", "0x11e", "0x11d",
+      "0x0d1"
+    ],
+    "same_preserved_size_pairs": 13,
+    "same_file_size_pairs": 9,
+    "core_equal_byte_fraction_mean": 0.003178,
+    "core_xor_entropy_bits_per_byte_mean": 7.588078,
+    "standard_decompression_successes": 0,
+    "shared_aligned_16_byte_blocks": 0,
+    "standard_digest_matches": 0,
+    "conclusion": "The inner cores are generation-specific, high-entropy authenticated objects. No clear segment, relocation, entry-point, standard compression, or simple digest format was recovered."
+  },
+  "experiments_040_042_superseded_control": {
+    "tested_word_3": "0x000e0000",
+    "actual_role": "first public Bill allocation, not the Process object",
+    "zero_private_sha256": "fa65776e6385510c715fb44ae5a7cf2fc5c334116d4c10e3722ed52740c43810",
+    "impulse_private_sha256": "1c6cb1cff5b8fd1965e0e5283bb76fd020d660ade69d459ad5115293517248c2",
+    "channel_audio_hashes_identical_between_inputs": true,
+    "valid_program_output": false
+  },
+  "experiments_043_044_correct_process_path": {
+    "private_stream_result_sha256": "b4b1b0525d1106336ac8cf6c96b4ba6c31600d52ada793e7ab29f6345b9fa500",
+    "process_command": [
+      "0x000b0004", "0x00400000", "request_id", "0x0009d00a"
+    ],
+    "process_address_source": "mapped first private resource",
+    "ticks": 8,
+    "channels": 2,
+    "samples_per_channel": 64,
+    "response_dwords_per_channel": 68,
+    "response_header": [
+      "0x80020044", "request_id", "channel", "0xf001000e"
+    ],
+    "tick_0_input_output": {
+      "channel_0_sample_0": "0x3f000000",
+      "channel_1_sample_0": "0xbf000000",
+      "all_other_samples_zero": true,
+      "exact_roundtrip": true
+    },
+    "ticks_1_through_7_output_zero": true,
+    "post_impulse_tail_observed": false,
+    "all_responses_correlated": true,
+    "writes_bounded": true,
+    "non_target_rings_unchanged": true,
+    "reset_and_iommu_recovery": true
+  },
+  "experiment_045_vfio_all_eight": {
+    "target_dsps": [0, 1, 2, 3, 4, 5, 6, 7],
+    "all_targets_exact_roundtrip": true,
+    "all_non_target_rings_unchanged": true,
+    "all_writes_bounded": true,
+    "all_targets_recovered": true,
+    "private_result_sha256_by_dsp": [
+      "24938f83c5a8323df5a7d1f476fdfe886eb0ce4026c79b7a4448099ec6a45952",
+      "9e8d1b2960d6cf6bdc41189961ee314f1baf575dd36e444da7a6614829a96c6d",
+      "5bf0fe850177bfebe8a71ec5d555f39c2c992426cbfbc18497dd0f8f2e2b5c31",
+      "7cd095df2c681f69b0fec4f3d77a77cbaf944f1a8ba76ee316212733e9794ccd",
+      "52933059624f59368b1838b73e481f168e5dcce8ab060eb4cbb6c8be0907ee8b",
+      "b3ddc1eb7336d600134f9749cdfc123921331a47b2f4a4e495808713fb0c73e9",
+      "e78469925286061043ba0eabd3c192c82b137a43e9d3b645ae52e81e4f06ca93",
+      "543fb92b39439b856811084358ff6ab69ada1d57d136ad02e8ee4339f554ec46"
+    ]
+  },
+  "experiment_046_kernel_api_all_eight": {
+    "private_log_sha256": "84566ca6a41dc766a9c38015797a134f497af638564c9b2998fdee4c9f4c483f",
+    "abi_version": 2,
+    "capabilities": "0x3f",
+    "bundle_bytes": 69632,
+    "private_bundle_sha256": "beda4baf28b962447902f30d2bb25bf8d4b7738b9f00a29fe232347b638191ac",
+    "secure_boot_signature_enforcement_bypassed": false,
+    "target_dsps": [0, 1, 2, 3, 4, 5, 6, 7],
+    "all_jobs_completed": true,
+    "all_jobs_marker": "0xf001000e",
+    "all_jobs_exact_roundtrip": true,
+    "release_audit_kernel": "7.0.0-29-generic",
+    "release_audit_full_512_byte_comparison_by_dsp": true,
+    "uapi_64_bit_members_explicitly_aligned": true,
+    "pci_remove_mapping_revocation_present": true,
+    "kernel_w1_build_passed": true,
+    "userspace_werror_build_passed": true,
+    "after_test_all_dsps_ready": true,
+    "after_test_dma_disabled": true,
+    "after_test_ring_indices_zero": true,
+    "after_test_module_removed": true,
+    "after_test_endpoint_unbound": true,
+    "after_test_iommu_mode": "DMA-FQ"
+  },
+  "experiment_047_rejection_and_recovery": {
+    "private_log_sha256": "7e15590305793e3852ceb5550ec63216a5cd278f8708251d32d80606b87e865f",
+    "mutation": "one byte at private bundle offset 100",
+    "mutated_bundle_rejected": true,
+    "userspace_error": "EKEYREJECTED",
+    "unchanged_bundle_succeeded_immediately_after": true,
+    "exact_roundtrip_after_rejection": true,
+    "all_dsps_ready_after_recovery": true,
+    "all_ring_indices_zero_after_recovery": true
+  },
+  "claim_boundary": {
+    "authorized_program_allocation_and_buffer_execution": true,
+    "realverb_wet_algorithm_execution": false,
+    "arbitrary_custom_sharc_program": false,
+    "inner_authentication_algorithm_or_key_recovered": false,
+    "general_purpose_compute_ready": false
+  }
+}

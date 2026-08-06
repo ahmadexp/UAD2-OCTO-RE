@@ -261,9 +261,10 @@ python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
 It confirms the two-dword pool envelope, 4 KiB copy chunks, ten ordinary
 600 ms completion waits, the resource-ID-specific `0x80070004` success form,
 and the final `0x80020044` plus `0xf0060000` status form. It also records the
-exact low-code to host-error mapping. These findings define completion
-handling for a future Linux program API. Exact `0x12b` completion has now been
-exercised on all eight DSPs, but program execution remains gated. See
+exact low-code to host-error mapping. These findings define resource completion
+handling in the Linux program API. Exact authorized loading and buffer
+execution have now been exercised on all eight DSPs; arbitrary custom code
+remains gated. See
 [`bill-resource-analysis.md`](bill-resource-analysis.md).
 
 ## Plug-in runtime metadata, relocation, and readback
@@ -296,6 +297,12 @@ exactly the requested dword count plus two dwords. The separate synchronous
 plug-in control command `0x001f0004` is derived from plug-in flags and routing;
 it is not a general entry-point record.
 
+`CPluginInstance::SetDSPResourceManager` resolves the first entry in the
+private-resource array and stores its mapped address at plug-in object offset
+`0x0bd8`. The main `Process` command later reads that field into word three,
+next to the request counter in word two. This proves that the Process object is
+the first private allocation. It is not the first public Bill pool address.
+
 These facts can be reproduced without publishing driver bytes:
 
 ```bash
@@ -314,16 +321,14 @@ negative result: `0x000c0004` is not a standalone decoded-memory oracle after
 isolated resource acceptance. The complete plug-in `Process` transaction or
 activation state is a demonstrated prerequisite candidate.
 
-Experiment 032 then accepted the complete first 13-resource RealVerb pass,
-including all three objects split across two DMA descriptors, before issuing
-the same bounded readback. The readback command was consumed without a
-response. This rules out incomplete resource loading as the prerequisite and
-makes the allocation, memory-spec update, `Process`, or activation metadata the
-next justified capture boundary.
+Experiment 032 accepted the complete first 13-resource RealVerb pass, including
+all three objects split across two DMA descriptors. Experiments 039 through 044
+then captured and reproduced the allocation, all 33 zero-resource commands, the
+65-dword memory specification, and the complete Process transaction. The first
+private allocation is `0x0009d00a`. With that word-three value, zero input
+returns zero and an opposed half-scale stereo impulse returns exactly. The
+response carries `0x80020044`, request ID, channel, and marker `0xf001000e`.
 
-Experiments 033 and 034 then exposed an operational constraint. All 13 exact
-pool-zero unload commands were consumed, but neither the first resource reload
-nor query 026 received a response. Per-DSP resets preserved ready state but did
-not restore the runtime service. The planned 33 zero-resource commands and
-65-dword memory-spec update were therefore not submitted. Fresh official
-plug-in activation is required before that allocation phase can be tested.
+The verifier now contains 13 instruction signatures, including the
+first-private-resource lookup and the Process command construction. It does not
+decode the inner Bill executable.

@@ -24,8 +24,10 @@ Every trial also preserved all eight ready bits, confined writes to the
 four-word target response, and passed explicit restore plus VFIO reset.
 
 This proves program-resource loader isolation and target selection across all
-eight DSPs. It is not program-level execution isolation: no module entry point
-was activated, no heartbeat ran, and no deliberate timeout or out-of-bounds
-program fault was induced.
+eight DSPs. At this historical stage no module entry point was activated, no
+heartbeat ran, and no deliberate timeout or out-of-bounds program fault was
+induced. Experiment 045 later closes normal authorized program-buffer targeting
+across all eight DSPs. Hostile custom-program isolation remains blocked because
+no arbitrary program loader exists.
 
 See [`result.json`](data/experiment-030-eight-dsp-bill-isolation/result.json).

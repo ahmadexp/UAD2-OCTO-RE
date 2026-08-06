@@ -1021,6 +1021,8 @@ class ProgramRuntimeABITests(unittest.TestCase):
         self.assertIn("0x000c0004", meanings)
         self.assertIn("0x00150000", meanings)
         self.assertIn("low 24-bit offset", meanings)
+        self.assertIn("first private resource", meanings)
+        self.assertIn("four-dword main command", meanings)
         self.assertNotIn("authorization change", meanings.lower())
 
 
@@ -1030,7 +1032,10 @@ class Experiment032SourceTests(unittest.TestCase):
         wrapper = (ROOT / "tools" / "uad2-vfio-realverb-sequence.sh").read_text()
         self.assertIn("#define RESOURCE_COUNT 13", source)
         self.assertIn("#define CHUNK_COUNT 16", source)
-        self.assertIn("#define PAGE_COUNT (MEMSPEC_PAGE + 1)", source)
+        self.assertIn("#define PROCESS_TICKS_MAX 8", source)
+        self.assertIn(
+            "#define PAGE_COUNT (PROCESS_OUTPUT_PAGE_BASE +", source
+        )
         self.assertIn("#define RESOURCE_WAIT_MS 600", source)
         self.assertIn("#define READBACK_WAIT_MS 6000", source)
         self.assertIn("definition->total_bytes != definition->body_bytes + 28U", source)
@@ -1086,38 +1091,81 @@ class Experiment018SourceTests(unittest.TestCase):
 class ComputeDriverContractTests(unittest.TestCase):
     def test_uapi_exposes_capabilities_without_raw_mmio(self):
         header = (ROOT / "include" / "uapi" / "uad2_compute.h").read_text()
+        self.assertIn("UAD2_COMPUTE_ABI_VERSION 2U", header)
+        self.assertIn("UAD2_COMPUTE_FRAME_BYTES", header)
         self.assertIn("UAD2_CAP_RING_TRANSPORT", header)
+        self.assertIn("UAD2_CAP_PROGRAM_LOAD", header)
+        self.assertIn("UAD2_CAP_DMA_BUFFERS", header)
+        self.assertIn("UAD2_CAP_JOB_COMPLETION", header)
         self.assertIn("UAD2_CAP_PROGRAM_ISOLATION", header)
         self.assertIn("UAD2_COMPUTE_IOC_GET_DSP_STATUS", header)
+        self.assertIn("UAD2_COMPUTE_IOC_ALLOC_BUFFER", header)
+        self.assertIn("UAD2_COMPUTE_IOC_LOAD_PROGRAM", header)
+        self.assertIn("UAD2_COMPUTE_IOC_SUBMIT_JOB", header)
+        self.assertIn("UAD2_COMPUTE_IOC_WAIT_JOB", header)
         self.assertNotIn("MMIO", header)
         self.assertNotIn("PHYSICAL", header)
         self.assertNotIn("SUBMIT_COMMAND", header)
 
     def test_driver_is_locked_to_exact_octo_and_bounded_pages(self):
         source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        uapi = (ROOT / "include" / "uapi" / "uad2_compute.h").read_text()
         self.assertIn("#define UAD2_SUBDEVICE_OCTO 0x0005", source)
         self.assertIn("#define UAD2_BAR0_SIZE 0x10000", source)
         self.assertIn("#define UAD2_DSP_COUNT 8", source)
         self.assertIn("#define UAD2_RING_COUNT 2", source)
         self.assertIn("#define UAD2_RING_PAGES 4", source)
         self.assertIn("dma_alloc_coherent", source)
-        self.assertNotIn(".mmap", source)
+        self.assertIn("dma_mmap_coherent", source)
+        self.assertIn(".mmap = uad2_mmap", source)
+        self.assertIn("unmap_mapping_range", source)
+        self.assertIn("__aligned_u64 capabilities", uapi)
         self.assertNotIn(".write =", source)
         self.assertNotIn(".read =", source)
 
-    def test_driver_advertises_only_validated_operations(self):
+    def test_driver_advertises_validated_version_2_operations(self):
         source = (ROOT / "kernel" / "uad2_compute.c").read_text()
         capability_assignment = source[source.index(".capabilities =") :]
         capability_assignment = capability_assignment[: capability_assignment.index(";")]
         self.assertIn("UAD2_CAP_RING_TRANSPORT", capability_assignment)
         self.assertIn("UAD2_CAP_PER_DSP_RESET", capability_assignment)
-        self.assertNotIn("UAD2_CAP_PROGRAM_LOAD", capability_assignment)
-        self.assertNotIn("UAD2_CAP_DMA_BUFFERS", capability_assignment)
-        self.assertNotIn("UAD2_CAP_JOB_COMPLETION", capability_assignment)
+        self.assertIn("UAD2_CAP_PROGRAM_LOAD", capability_assignment)
+        self.assertIn("UAD2_CAP_DMA_BUFFERS", capability_assignment)
+        self.assertIn("UAD2_CAP_JOB_COMPLETION", capability_assignment)
+        self.assertIn("UAD2_CAP_PROGRAM_ISOLATION", capability_assignment)
 
-    def test_compute_operations_fail_closed_in_userspace(self):
+    def test_compute_operations_reach_bounded_ioctls(self):
         source = (ROOT / "lib" / "uad2_compute.c").read_text()
-        self.assertEqual(source.count("return -EOPNOTSUPP;"), 4)
+        client = (ROOT / "lib" / "uad2ctl.c").read_text()
+        self.assertNotIn("return -EOPNOTSUPP;", source)
+        self.assertIn("UAD2_COMPUTE_IOC_ALLOC_BUFFER", source)
+        self.assertIn("UAD2_COMPUTE_IOC_LOAD_PROGRAM", source)
+        self.assertIn("UAD2_COMPUTE_IOC_SUBMIT_JOB", source)
+        self.assertIn("UAD2_COMPUTE_IOC_WAIT_JOB", source)
+        self.assertIn("memcmp(output, input, UAD2_COMPUTE_FRAME_BYTES)", client)
+
+    def test_program_loader_accepts_only_the_exact_authorized_bundle(self):
+        source = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        packer = (ROOT / "tools" / "pack_realverb_program.py").read_text()
+        self.assertIn("#define UAD2_PROGRAM_IMAGE_PAGES 17", source)
+        self.assertIn("#define UAD2_PROGRAM_RESOURCES 13", source)
+        self.assertIn("UAD2_BILL_MAGIC", source)
+        self.assertIn("-EKEYREJECTED", source)
+        self.assertIn("private_bundle=true do_not_commit=true", packer)
+        self.assertEqual(packer.count('command-') , 17)
+
+    def test_process_path_uses_private_resource_not_public_bill_allocation(self):
+        driver = (ROOT / "kernel" / "uad2_compute.c").read_text()
+        probe = (ROOT / "tools" / "vfio_realverb_sequence.c").read_text()
+        wrapper = (ROOT / "tools" / "uad2-vfio-realverb-sequence.sh").read_text()
+        self.assertIn("#define UAD2_PROCESS_ADDRESS 0x0009d00a", driver)
+        self.assertIn("#define UAD2_PROCESS_INPUT_DWORDS 0x42", driver)
+        self.assertIn("#define UAD2_PROCESS_OUTPUT_DWORDS 0x44", driver)
+        self.assertIn("uad2_word_canary", driver)
+        self.assertIn("#define PROCESS_PLUGIN_ADDRESS 0x0009d00a", probe)
+        self.assertIn("#define PROCESS_RESPONSE_MARKER 0xf001000e", probe)
+        self.assertIn('"--process-stream-dsp"', probe)
+        self.assertIn('[ "$1" = "--process-stream-dsp" ]', wrapper)
 
 
 if __name__ == "__main__":

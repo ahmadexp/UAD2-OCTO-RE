@@ -1,142 +1,100 @@
-# Roadmap to general-purpose DSP execution
+# Roadmap to arbitrary general-purpose DSP execution
 
-The goal is not merely to submit an existing audio plug-in. A successful
-general-purpose path must load independently controlled code, exchange bounded
-buffers, report completion, and recover from failure.
+The host transport and one authorized program-buffer path are complete. The
+remaining goal is user control over the ADSP-21469 instruction stream.
 
 ## Phase 1: host transport
 
-- [x] Identify the exact PCI endpoint and BAR profile.
+- [x] Identify the exact PCI endpoint, BAR, FPGA revision, and subsystem.
 - [x] Establish IOMMU isolation and VFIO reset.
-- [x] Confirm ring descriptors and index roles.
-- [x] Enable only DSP0 DMA under a bounded mapping.
-- [x] Reproduce DSP0 interrupt masks.
-- [x] Recover the complete device-start sequence statically.
-- [x] Reproduce four-page command and response ring initialization in official
-      order with DMA disabled.
-- [x] Resolve the shared 4 MiB tables as an optional audio transport that the
-      OCTO capability branch does not instantiate.
-- [x] Recover the eight-DSP compressed interrupt-vector mapping.
-- [x] Receive benign card-written responses through the official runtime.
-- [x] Receive the same benign query response directly from Linux after safely
-      adopting the resident official framework.
+- [x] Recover the four-page ring descriptors and index roles.
+- [x] Reproduce all 16 rings and all-eight DMA startup.
+- [x] Recover interrupt-vector compression and callback masks.
+- [x] Resolve the shared 4 MiB extension as absent on this OCTO profile.
+- [x] Receive and correlate valid runtime responses from Linux.
+- [x] Recover and validate per-DSP and whole-device reset paths.
 
-## Phase 2: loader and executable format
+## Phase 2: firmware and resource formats
 
-- [x] Identify the ADSP-21469 family and transcribe its data-sheet memory map.
-- [x] Confirm `ADSP-21469 KBCZ-00` on all eight packages optically.
-- [x] Separate FPGA-image, DSP-framework, and plug-in container paths.
-- [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
-- [x] Inventory all 47 installer firmware containers, their build words,
-      compatibility IDs, declared sizes, entropy, and direct SHA-256 tail tests.
-- [x] Prove device-side integrity or authentication covers both regions of one
-      accepted `Bill` body through single-bit differentials.
-- [ ] Identify the integrity or authentication algorithm and key source.
-- [ ] Recover relocation, segment, entry-point, and memory-protection rules.
-- [x] Build a bounded offline wrapper parser with synthetic tests.
-- [x] Recover the `Bill` program-resource outer header and deterministic host
-      tail transform, including the payload-form branch.
-- [x] Recover its two-dword transmit envelope and low/high free-list allocator.
-- [x] Recover 4 KiB copy limits, bounded completion waits, both accepted
-      response forms, and the exact final status mapping.
-- [x] Recover the fixed host allocation record, 16-byte runtime memory specs,
-      mapped-address patch command, and 8-byte resource readback specs.
-- [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
-      DSPs with a read-only VFIO snapshot.
-- [x] Observe exact form-zero resource successes on DSP0, including the first
-      RealVerb object submitted from Linux.
-- [x] Repeat exact authenticated-resource acceptance independently across all
-      eight DSPs with non-target ring-index isolation.
-- [x] Replay the complete 13-resource RealVerb pass with exact correlated
-      completions, page-bounded DMA, canaries, and reset recovery.
-- [ ] Decode opaque payloads into segments and relocations, if those concepts
-      are present in the DSP-side format.
+- [x] Confirm all eight `ADSP-21469 KBCZ-00` packages.
+- [x] Separate persistent FBUT/GBUT/HBUT update traffic from ordinary Bill
+      resources.
+- [x] Inventory all 47 firmware wrappers and reproduce the complete official
+      HBUT descriptor chain.
+- [x] Recover the Bill outer header, transform, envelope, allocator, lifecycle,
+      copy limit, and response parser.
+- [x] Prove whole-body device authentication with single-bit differentials.
+- [x] Accept the complete 13-resource RealVerb sequence from Linux.
+- [x] Recover 33 private allocations and the 65-dword memory specification.
+- [x] Recover the first-private-resource Process pointer and buffer ABI.
+- [ ] Identify the inner authentication or encryption algorithm and key source.
+- [ ] Decode clear code and data segments.
+- [ ] Decode DSP-side relocation records and arithmetic.
+- [ ] Decode entry point, call ABI, and runtime reservations.
 
-The exact `HBUT` artifact matches the target's FPGA revision. The symbolized
-driver maps operation `0x69` to `LoadFirmware`, while `LoadFPGAImage` is the
-separate operation `0x6a`. The updater nevertheless requires a restart after a
-PCIe firmware update. Experiment 023 used the exact official path: all 625
-payload descriptors and the response descriptor were consumed, the updater
-requested restart, and RTC cold recovery succeeded. The completion page and
-the later exact-boundary runtime response targets remained zero. Experiment
-024 showed that the update alone does not enable query 026 after a cold boot.
-Experiment 025 then activated the official plug-in path. Experiments 026
-through 030 named the authorization states, isolated `0x12b` as the first zero
-target in the invasive capture, safely bridged the resident framework to
-Linux, accepted that exact object, proved whole-body integrity enforcement,
-and repeated acceptance across all eight DSPs. Experiment 032 then accepted
-all 13 resources in the first RealVerb pass, including the three split across
-two DMA descriptors. A module entry point and bounded program output are still
-not available.
+The exact RealVerb DLL provides 13 adjacent generation-1/generation-2 pairs.
+Their cores have near-random cross-generation differences, no standard
+decompression succeeds, and tested digest and repeated-block hypotheses fail.
+The physical device also rejects mutations in both the prefix and core. This
+is strong evidence that the remaining format is cryptographically protected,
+not a plaintext table awaiting a conventional parser.
+
+## Phase 3: authorized buffer execution
+
+- [x] Load the exact 13-resource official workload.
+- [x] Apply the private-resource allocation sequence and memory specification.
+- [x] Submit zero and impulse controls on DSP0.
+- [x] Observe request-correlated, channel-correlated bounded output.
+- [x] Run eight sequential ticks and verify bounded writes.
+- [x] Repeat normal execution independently on DSP0 through DSP7.
+- [x] Reject a mutated bundle and recover for an unchanged retry.
+
+The captured default state returns input samples unchanged and produces no
+post-impulse tail. That is sufficient to prove the buffer and completion path,
+but not the RealVerb wet algorithm.
+
+## Phase 4: reusable Linux interface
+
+- [x] Kernel driver with no raw MMIO or physical-address UAPI.
+- [x] Exact-device identity and cold-state gates.
+- [x] Secure Boot signed module validation.
+- [x] Kernel-owned coherent input and output buffers with opaque handles.
+- [x] Bounded userspace `mmap`.
+- [x] Exact authorized-bundle validation and device authentication.
+- [x] Synchronous submit and completed-job retrieval.
+- [x] Normal target selection and non-target ring checks across all eight DSPs.
+- [ ] Asynchronous queues, cancellation, and concurrent programs.
+- [ ] Custom-program scheduling and fault isolation.
+
+ABI version 2 intentionally supports one open file, one authorized program,
+and one synchronous job at a time. Broader scheduling should wait for a custom
+program format so the API is not overfit further to a proprietary audio
+plug-in.
+
+## Phase 5: first user-authored program
+
+- [ ] Obtain a lawful decoded reference or documented development container.
+- [ ] Build an offline validator for its segments, relocations, entry point,
+      and reserved ranges.
+- [ ] Create a minimal DSP0 heartbeat that touches one assigned buffer only.
+- [ ] Demonstrate `out[i] = in[i] + constant`.
+- [ ] Inject timeout and bounded IOMMU faults on each target DSP.
+- [ ] Run concurrent programs only after single-target fault recovery passes.
 
 ## Current blockers
 
-| Goal | Blocking evidence | Required evidence before implementation |
+| Goal | Blocking evidence | Required next evidence |
 |---|---|---|
-| Valid response semantics | Closed for query 026, authorization, exact Bill success, and all 13 resources in RealVerb's first pass | No response-semantic blocker remains for resource loading |
-| Payload authentication and transform | Single-bit changes in the prefix and core are rejected with structured device statuses. The algorithm and cleartext remain opaque | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
-| Relocations and runtime reservations | Pool bounds and live offsets are known. The outer `0x00150000` runtime memory-spec patch resolves a selected mapped resource plus a low-24-bit offset into each private allocation. No decoded inner segment or entry-point record is visible | Decode one accepted target-compatible resource and correlate its inner accesses; do not conflate host memory specs with the opaque core format |
-| Harmless DSP0 program | The complete 13-resource pass succeeds, but no proven entry ABI or output exists and arbitrary modifications are rejected. The fixed `0x000c0004` read remains unanswered even after the complete pass | Capture or reconstruct the allocation and complete plug-in process transaction, then derive a target-specific clear program format and lawful authentication path |
-| General-purpose job API | Resource completions are real, but program handles and buffer ownership would still be guesses | One complete program load, bounded buffer exchange, and completion response |
-| Eight-DSP program isolation | Authenticated loader isolation is proven on all eight engines, but no entry point ran | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
-
-The live prerequisite for the next allocation experiment is now explicit. A
-complete 13-resource pass succeeded once, but the runtime service stopped
-responding afterward. Exact unload commands and isolated resets did not restore
-query 026. Fresh official plug-in activation must precede any retry of the 33
-private-resource zero commands and 65-dword memory-spec update.
-
-The transport module remains fail-closed for program, buffer, submit, and wait
-operations until these evidence gates are met.
-
-Static work also proves that firmware operation `0x69` selects its own target
-method and does not automatically invoke operations `0x67` and `0x68` in the
-common dispatcher. Both recovered updater callers also dispatch the selected
-`FBUT`, `GBUT`, or `HBUT` directly without an automatic pre-operation or
-post-operation. The complete operation-`0x6f` path is recovered: it builds
-the system-information record from host state and BAR MMIO and never uses the
-DSP command ring. A live `0x6f` call is therefore not a remaining response
-milestone.
-
-Resource-manager properties 6, 7, and 8 are likewise host-side BAR or cached
-state reads. Their recovery explains the eleven-word pool capture but does not
-provide a runtime command or response service.
-
-A distinct kernel-lifecycle transition is known. Ordinary hard reset
-pulses BAR `+0x221c`; after the firmware-load flag is set, hard reset writes
-`0x0be0deaf` to DSP0 `+0x1a8` instead. This cross-platform result narrows the
-boot state machine. The official update trace did not emit the magic and the
-post-update shutdown emitted the ordinary reset pulse, so the magic remains an
-unexecuted branch rather than a missing required step.
-
-Detailed response-state evidence is in
-[`runtime-response-state.md`](runtime-response-state.md). The first-program,
-API capability, and 56-case isolation acceptance criteria are in
-[`program-execution-gates.md`](program-execution-gates.md).
-
-## Phase 3: first controlled program
-
-- [ ] Build a minimal heartbeat for DSP0.
-- [ ] Load it without touching DSP1 through DSP7.
-- [ ] Verify a counter or completion record in a dedicated IOMMU buffer.
-- [ ] Add timeout and per-DSP recovery before repeating.
-- [ ] Demonstrate `out[i] = in[i] + constant` with explicit input and output
-      buffers.
-
-## Phase 4: reusable compute interface
-
-- [x] Linux kernel transport with no arbitrary MMIO or physical-address API.
-- [x] Validate the signed kernel transport on the exact OCTO under Secure Boot.
-- [x] Userspace library with versioned capabilities; buffer, program, job, and
-      wait calls are present but explicitly return `-EOPNOTSUPP`.
-- [ ] Per-DSP scheduling and failure isolation.
-- [x] Validate empty-transport reset isolation across all eight DSP engines.
-- [ ] Validate program and buffer isolation across all eight DSP cores.
-- [ ] Performance measurements against CPU implementations.
+| inner authentication | prefix and core mutations are rejected; host parser performs no cryptography | DSP-side decode trace, lawful development artifact, or documented format |
+| clear executable | inner cores are high-entropy and generation-specific | one authenticated object paired with its clear build product |
+| DSP-side relocation | outer mapped-resource patches are known, but no inner records are visible | decoded segment image plus before-and-after loader memory trace |
+| custom entry point | Process enters the official private object, not a user-selected address | decoded module metadata or vendor development ABI |
+| hostile-code isolation | no accepted program can intentionally hang or fault | accepted minimal custom program with bounded fault variants |
 
 ## Stop conditions
 
-The project should stop or redesign if executable authentication cannot be
-lawfully and safely satisfied, the FPGA exposes DMA outside the IOMMU contract,
-reset cannot recover a failed DSP, or the only viable path requires modifying
-persistent board firmware.
+Stop or redesign if the only path requires bypassing authorization, modifying
+persistent board firmware, exposing unrestricted DMA or MMIO, or submitting an
+object whose memory behavior cannot be bounded. The project may continue to
+support authorized official workloads even if the inner cryptographic format
+cannot be lawfully reproduced.
