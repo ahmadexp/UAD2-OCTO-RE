@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "scope": "sanitized metadata for Experiments 048 through 050",
+  "private_payload_bytes_published": false,
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "fpga_revision": "0xa012dc0d",
+    "target_dsp": 0
+  },
+  "hash_locked_inputs": {
+    "uad2sdk_dll_sha256": "ca09fd717d6d28a5cb747c8b8c587a1baf27ab973139410379a887517470de8b",
+    "uad2driverclient_dll_sha256": "da5c7925d89a9e43574abcfebc4b2e03dd3b0059bf08d5f423ee51d5df8f89da",
+    "realverb_dll_sha256": "26b27e8e5e31bdae054ba748f559d874332f4281760d6723ca6f1c93d42c61e8",
+    "capture_proxy_dll_sha256": "a0f7395d35c9b6e7c40372f1dc3c6b2c9814ebf413ff373733a5a7cbdd4141b6"
+  },
+  "experiment_048_native_allocation_capture": {
+    "capture_sha256": [
+      "c59b7cefe690b8e81c51dc0bb2e86c587fb3d28b85f63c80355cc849b3b71bf2",
+      "21a43aefb8563e60d0210611f9a0719b674eb545c44f6da1465a4af5b0a46f6f"
+    ],
+    "record_sha256_pointer_scrubbed": "a9a07e027023eb90a056747a13905e6acc6737888e3a5f60093fbac26c3ad0e0",
+    "two_captures_equal_after_pointer_scrubbing": true,
+    "record_bytes": 2808,
+    "record_bytes_hex": "0x0af8",
+    "resource_count": 26,
+    "memory_spec_count": 33,
+    "readback_spec_count": 1,
+    "readback_spec": {
+      "resource": 0,
+      "dword_offset": 419,
+      "dword_count": 4,
+      "packed_spec": "0x000001a3"
+    },
+    "memory_specs_word0_length_destination_flags": [
+      [1, 430, 4294967295, 0],
+      [1, 150, 168, 2],
+      [1, 150, 169, 2],
+      [1, 56, 170, 2],
+      [1, 2, 178, 2],
+      [1, 2, 179, 2],
+      [1, 2, 180, 0],
+      [1, 2, 181, 0],
+      [1, 34, 182, 0],
+      [1, 34, 183, 0],
+      [1, 34, 184, 2],
+      [1, 34, 185, 2],
+      [1, 34, 186, 0],
+      [1, 34, 187, 2],
+      [1, 34, 188, 2],
+      [1, 34, 189, 0],
+      [1, 34, 190, 2],
+      [1, 34, 191, 2],
+      [1, 34, 192, 2],
+      [1, 4, 196, 2],
+      [1, 4, 197, 2],
+      [1, 4, 198, 2],
+      [1, 32, 220, 2],
+      [1, 16, 231, 2],
+      [1, 16, 232, 2],
+      [1, 16, 233, 0],
+      [1, 16, 234, 0],
+      [1, 12, 235, 2],
+      [1, 16, 236, 0],
+      [1, 170, 416, 2],
+      [1, 170, 417, 2],
+      [1, 64, 418, 2],
+      [3, 64640, 426, 2]
+    ]
+  },
+  "experiment_048_process_coupled_readback": {
+    "process_command": [
+      "0x000b0004", "0x00400002", "0x00000001", "0x0009d00a"
+    ],
+    "readback_command": [
+      "0x000c0004", "0x0009d1ad", "0x00000004", "0x000001a3"
+    ],
+    "response": [
+      "0x80010006", "0x000001a3", "0x00000000", "0x00000000",
+      "0x00000000", "0x00000000"
+    ],
+    "response_little_endian_sha256": "86d26e4b1aa28fcbd75c7a5d2af2a7b6bf88b3b32e7a57e52c23ebc9d035d6cb",
+    "command_consumed": true,
+    "response_consumed": true,
+    "response_valid": true
+  },
+  "experiment_049_private_runtime_snapshot": {
+    "readback_command": [
+      "0x000c0004", "0x0009d00a", "0x000001ae", "0x00000000"
+    ],
+    "response_header": ["0x800101b0", "0x00000000"],
+    "payload_dwords": 430,
+    "payload_little_endian_sha256": "6867505cb82b637181cb4ac59e728d210b65ee47571a3490239d80ab294f3d21",
+    "zero_dwords": 398,
+    "nonzero_dwords": 32,
+    "nonzero_destination_offsets": [
+      168, 169, 170, 178, 179, 180, 181, 182, 183, 184, 185, 186,
+      187, 188, 189, 190, 191, 192, 196, 197, 198, 220, 231, 232,
+      233, 234, 235, 236, 416, 417, 418, 426
+    ],
+    "nonzero_values": [
+      "0x0009cf74", "0x0009cede", "0x0009cea6", "0x0009cea4",
+      "0x0009cea2", "0x0009cea0", "0x0009ce9e", "0x0009ce7c",
+      "0x0009ce5a", "0x0009ce38", "0x0009ce16", "0x0009cdf4",
+      "0x0009cdd2", "0x0009cdb0", "0x0009cd8e", "0x0009cd6c",
+      "0x0009cd4a", "0x0009cd28", "0x0009cd24", "0x0009cd20",
+      "0x0009cd1c", "0x0009ccfc", "0x0009ccec", "0x0009ccdc",
+      "0x0009cccc", "0x0009ccbc", "0x0009ccb0", "0x0009cca0",
+      "0x0009cbf6", "0x0009cb4c", "0x0009cb0c", "0x08fee380"
+    ],
+    "nonzero_offsets_equal_host_memspec_destinations": true,
+    "interpretation": "The first private resource is a zero-initialized runtime control block patched with 32 allocation addresses, not a clear executable image."
+  },
+  "experiment_050_public_bill_readback_negative_control": {
+    "readback_command": [
+      "0x000c0004", "0x000e0000", "0x00000040", "0x00000000"
+    ],
+    "command_consumed": true,
+    "audio_process_outputs_valid": true,
+    "response_descriptor_consumed": false,
+    "response_buffer_remained_canary": true,
+    "wait_ms": 6000,
+    "interpretation": "The Process readback primitive does not provide an unrestricted read of the public Bill pool."
+  },
+  "realverb_standard_sharc_ldr_scan": {
+    "resource_instances": 26,
+    "wire_body_byte_offsets_scanned": 45398,
+    "little_and_big_endian_header_candidates": 0,
+    "standard_tags_tested": [
+      "FINAL_INIT", "ZERO_LDATA", "ZERO_L48", "INIT_L16", "INIT_L32",
+      "INIT_L48", "INIT_L64", "ZERO_EXT8", "ZERO_EXT16", "INIT_EXT8",
+      "INIT_EXT16"
+    ],
+    "conclusion": "The transmitted RealVerb Bill bodies do not contain clear standard SHARC loader block framing."
+  },
+  "recovery": {
+    "all_dsps_ready_after_each_trial": true,
+    "non_target_ring_indices_unchanged": true,
+    "writes_confined_to_declared_response_prefixes": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true,
+    "iommu_unmap_succeeded": true,
+    "endpoint_unbound_after_trials": true
+  },
+  "claim_boundary": {
+    "valid_official_readback_response": true,
+    "complete_private_runtime_control_block_recovered": true,
+    "public_bill_bytes_recovered": false,
+    "clear_inner_executable_recovered": false,
+    "user_authored_affine_biquad_or_convolution_kernel": false,
+    "general_purpose_compute_ready": false
+  }
+}

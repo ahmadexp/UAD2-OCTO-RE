@@ -27,6 +27,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`program-execution-gates.md`](program-execution-gates.md): harmless-program, API, recovery, and all-eight isolation criteria
 - [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md): corrected Process object, bounded buffers, ABI v2, and all-eight trials
+- [`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md): native allocation record, valid private readback, relocation snapshot, and public-pool negative control
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
 - [`reverse-engineering-status.md`](reverse-engineering-status.md): completion matrix for every requested outcome
 
@@ -86,6 +87,9 @@ card recovered. It does not imply that later or broader operations are safe.
 | 045 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Corrected authorized buffer transaction passed on all eight DSPs with non-target rings unchanged |
 | 046 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Secure Boot signed ABI-v2 driver completed authorized buffer jobs on DSP0 through DSP7 |
 | 047 | [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md) | [`sanitized result`](data/experiment-039-047-runtime-api/result.json) | Mutated bundle rejected with `EKEYREJECTED`; unchanged bundle then ran and recovered |
+| 048 | [`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md) | [`sanitized result`](data/experiment-048-050-runtime-readback/result.json) | Exact native allocation record captured; Process-coupled private readback returned `0x80010006` |
+| 049 | [`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md) | [`sanitized result`](data/experiment-048-050-runtime-readback/result.json) | Complete 430-dword private Process object recovered; all 32 nonzero words match host patch destinations |
+| 050 | [`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md) | [`sanitized result`](data/experiment-048-050-runtime-readback/result.json) | Public Bill readback negative control timed out safely with the response canary intact |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

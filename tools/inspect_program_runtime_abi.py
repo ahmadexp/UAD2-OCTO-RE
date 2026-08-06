@@ -21,7 +21,7 @@ SIGNATURES = (
     (
         0x26042,
         bytes.fromhex("8b023d2c0a0000742941bfeaffffff3df00a0000"),
-        "the converter accepts legacy 0x0a2c and native 0x0af0 allocation records",
+        "the converter accepts legacy 0x0a2c and native 0x0af8 allocation records",
     ),
     (
         0x260AC,
@@ -138,7 +138,7 @@ def inspect(path: Path) -> dict[str, object]:
         "sha256": digest,
         "all_signatures_match": all(check["matches"] for check in checks),
         "allocation_record": {
-            "native_bytes": 0xAF0,
+            "native_bytes": 0xAF8,
             "legacy_bytes": 0xA2C,
             "memory_spec_count_offset": "0x0188",
             "memory_spec_entry_bytes": 16,

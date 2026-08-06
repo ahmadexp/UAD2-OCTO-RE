@@ -270,8 +270,9 @@ remains gated. See
 ## Plug-in runtime metadata, relocation, and readback
 
 The exact public, symbolized x86-64 driver also exposes the host-side runtime
-metadata consumed after resource allocation. The native `UAD2PluginAllocInfo`
-record is `0x0af0` bytes and the legacy record is `0x0a2c` bytes. In the native
+metadata consumed after resource allocation. A live capture from the exact
+Windows runtime confirms that the native `UAD2PluginAllocInfo` record is
+`0x0af8` bytes; the legacy record is `0x0a2c` bytes. In the native
 record, the memory-spec count is at `0x188`, each memory-spec entry is 16
 bytes, the readback-spec count is at `0x98c`, and each readback entry is 8
 bytes.
@@ -328,6 +329,19 @@ then captured and reproduced the allocation, all 33 zero-resource commands, the
 private allocation is `0x0009d00a`. With that word-three value, zero input
 returns zero and an opposed half-scale stereo impulse returns exactly. The
 response carries `0x80020044`, request ID, channel, and marker `0xf001000e`.
+
+Experiments 048 through 050 close the Process-context readback prerequisite.
+The exact allocation record contains one readback spec for private resource 0,
+offset 419, count 4. Process flag `0x2` plus command
+`000c0004 0009d1ad 00000004 000001a3` returns the valid response
+`80010006 000001a3 00000000 00000000 00000000 00000000`. A bounded read of
+all 430 known private-resource dwords then shows 398 zeros and exactly 32
+host-patched allocation addresses. The nonzero offsets equal the memory-spec
+destinations exactly. A 64-dword request at public Bill allocation
+`0x000e0000` consumes its command but leaves the response descriptor and
+canary untouched. Readback is therefore valid for the private Process object,
+not an unrestricted public-pool read primitive. See
+[`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md).
 
 The verifier now contains 13 instruction signatures, including the
 first-private-resource lookup and the Process command construction. It does not

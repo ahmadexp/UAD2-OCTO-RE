@@ -19,7 +19,7 @@ plug-in readback descriptors:
 
 The paired response descriptor is exactly `requested_dwords + 2` dwords. The
 same driver also exposes a separate runtime relocation mechanism. Its
-allocation record is `0x0af0` bytes, memory-spec entries begin at `0x188` and
+allocation record is `0x0af8` bytes, memory-spec entries begin at `0x188` and
 are 16 bytes each, and readback specs begin at `0x98c` and are 8 bytes each.
 Command class `0x00150000` resolves each spec as a mapped resource plus a
 low-24-bit offset and associates that value with the mapped private-resource

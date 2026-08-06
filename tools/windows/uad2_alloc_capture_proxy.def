@@ -1,0 +1,14 @@
+LIBRARY UAD2DriverClient
+EXPORTS
+    ?AtomicDecrement@UA@@YAHPEAH@Z=wrap_AtomicDecrement @1
+    ?AtomicIncrement@UA@@YAHPEAH@Z=wrap_AtomicIncrement @2
+    ?CreateUAMutex@UA@@YAPEAVCMutex@1@XZ=wrap_CreateUAMutex @3
+    ?OsDataGetVal@UA@@YAIPEBD0PEAIH@Z=wrap_OsDataGetVal @4
+    ?OsDataLoadVal@UA@@YAIPEBD0PEAIIH@Z=wrap_OsDataLoadVal @5
+    ?OsDataSetVal@UA@@YAIPEBD0IH@Z=wrap_OsDataSetVal @6
+    CreateUAD2PlugIn=wrap_CreateUAD2PlugIn @7
+    CreateUAD2PlugIn2=wrap_CreateUAD2PlugIn2 @8
+    DbgPrint=wrap_DbgPrint @9
+    OpenUAD2ChainManager=wrap_OpenUAD2ChainManager @10
+    OpenUAD2Driver=wrap_OpenUAD2Driver @11
+    OpenUAD2Driver2=wrap_OpenUAD2Driver2 @12

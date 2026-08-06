@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 // SPDX-License-Identifier: GPL-2.0-only
-/* Experiments 032-034 and 040-042: resource lifecycle and bounded processing. */
+/* Experiments 032-034, 040-044, and 048-050: bounded runtime processing. */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -50,6 +50,13 @@
 #define READBACK_COMMAND 0x000c0004
 #define READBACK_DWORDS 4
 #define READBACK_RESPONSE_WORDS (READBACK_DWORDS + 2)
+#define READBACK_MAX_DWORDS 430
+#define READBACK_PRIVATE_RESOURCE 0
+#define READBACK_PRIVATE_OFFSET 419
+#define READBACK_RESOURCE_SPEC \
+	((READBACK_PRIVATE_RESOURCE << 24) | READBACK_PRIVATE_OFFSET)
+#define READBACK_PRIVATE_ADDRESS \
+	(PROCESS_PLUGIN_ADDRESS + READBACK_PRIVATE_OFFSET)
 #define ZERO_COMMAND_COUNT 33
 #define MEMSPEC_DWORDS 65
 #define PROCESS_CHANNELS 2
@@ -349,7 +356,8 @@ static bool load_exact_memspec(unsigned char *memory, const char *path)
 static bool memory_writes_bounded(const unsigned char *memory,
 				  const unsigned char *snapshot,
 				  bool process_probe,
-				  unsigned int process_ticks)
+				  unsigned int process_ticks,
+				  unsigned int readback_response_dwords)
 {
 	unsigned int page;
 
@@ -366,9 +374,9 @@ static bool memory_writes_bounded(const unsigned char *memory,
 	{
 		size_t offset = READBACK_PAGE * PAGE_SIZE_4K;
 
-		if (memcmp(memory + offset + READBACK_RESPONSE_WORDS * 4,
-			   snapshot + offset + READBACK_RESPONSE_WORDS * 4,
-			   PAGE_SIZE_4K - READBACK_RESPONSE_WORDS * 4) != 0)
+		if (memcmp(memory + offset + readback_response_dwords * 4,
+			   snapshot + offset + readback_response_dwords * 4,
+			   PAGE_SIZE_4K - readback_response_dwords * 4) != 0)
 			return false;
 	}
 	if (memcmp(memory + MEMSPEC_PAGE * PAGE_SIZE_4K,
@@ -430,16 +438,25 @@ int main(int argc, char **argv)
 	bool non_target_indices_unchanged = true;
 	bool cleanup_probe = false, allocation_probe = false, process_probe = false;
 	bool isolation_trial = false, impulse_probe = false, stream_probe = false;
+	bool process_readback_probe = false;
+	bool runtime_snapshot_probe = false;
+	bool public_snapshot_probe = false;
+	bool private_allocation_snapshot_probe = false;
 	bool allocation_commands_consumed = true;
 	bool memspec_consumed = false;
 	bool readback_requested = false, readback_command_consumed = false;
 	bool readback_response_consumed = false, readback_observed = false;
+	bool readback_response_valid = false;
 	bool process_requested = false, process_commands_consumed = false;
 	bool process_responses_consumed = false, process_outputs_observed = false;
 	bool process_response_headers_valid = false;
 	bool restored = false, reset_recovered = false;
 	bool iommu_unmap_succeeded = false;
-	uint32_t readback_response[READBACK_RESPONSE_WORDS] = {0};
+	uint32_t readback_response[READBACK_MAX_DWORDS + 2] = {0};
+	uint32_t readback_dwords = READBACK_DWORDS;
+	uint32_t readback_resource_spec = READBACK_RESOURCE_SPEC;
+	uint32_t readback_private_address = READBACK_PRIVATE_ADDRESS;
+	uint32_t private_snapshot_index = UINT32_MAX;
 	uint32_t command_position = 0, response_position = 0;
 	uint32_t interrupt_shadow = CALLBACK_SHADOW;
 	unsigned int target_dsp = 0;
@@ -488,6 +505,87 @@ int main(int argc, char **argv)
 		isolation_trial = true;
 		path_offset = 3;
 	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-readback-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-048: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		process_readback_probe = true;
+		path_offset = 3;
+	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-snapshot-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-049: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		process_readback_probe = true;
+		runtime_snapshot_probe = true;
+		readback_dwords = READBACK_MAX_DWORDS;
+		readback_resource_spec = 0;
+		readback_private_address = PROCESS_PLUGIN_ADDRESS;
+		path_offset = 3;
+	} else if (argc == CHUNK_COUNT + 4 &&
+		   strcmp(argv[1], "--process-public-snapshot-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		errno = 0;
+		parsed = strtoul(argv[2], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-050: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+		allocation_probe = true;
+		process_probe = true;
+		process_readback_probe = true;
+		public_snapshot_probe = true;
+		readback_dwords = 0x40;
+		readback_resource_spec = 0;
+		readback_private_address = resources[0].allocation;
+		path_offset = 3;
+	} else if (argc == CHUNK_COUNT + 5 &&
+		   strcmp(argv[1], "--process-private-snapshot-dsp") == 0) {
+		char *dsp_end = NULL, *index_end = NULL;
+		unsigned long parsed_dsp, parsed_index;
+
+		errno = 0;
+		parsed_dsp = strtoul(argv[2], &dsp_end, 10);
+		parsed_index = strtoul(argv[3], &index_end, 10);
+		if (errno || !dsp_end || *dsp_end != '\0' ||
+		    !index_end || *index_end != '\0' || parsed_dsp >= DSP_COUNT ||
+		    parsed_index >= ZERO_COMMAND_COUNT - 1 ||
+		    zero_commands[parsed_index][3] > READBACK_MAX_DWORDS) {
+			fprintf(stderr, "experiment-051: DSP or private allocation index is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed_dsp;
+		private_snapshot_index = (uint32_t)parsed_index;
+		allocation_probe = true;
+		process_probe = true;
+		process_readback_probe = true;
+		private_allocation_snapshot_probe = true;
+		readback_dwords = zero_commands[parsed_index][3];
+		readback_resource_spec = (uint32_t)parsed_index << 24;
+		readback_private_address = zero_commands[parsed_index][1];
+		path_offset = 4;
+	} else if (argc == CHUNK_COUNT + 4 &&
 		   strcmp(argv[1], "--process-impulse-dsp") == 0) {
 		char *end = NULL;
 		unsigned long parsed;
@@ -522,7 +620,7 @@ int main(int argc, char **argv)
 		process_ticks = PROCESS_TICKS_MAX;
 		path_offset = 3;
 	} else if (argc != CHUNK_COUNT + 1) {
-		fprintf(stderr, "usage: vfio_realverb_sequence --cleanup | [--allocation|--process] exact-chunk-0 ... exact-chunk-15 [exact-memspec] | [--process-dsp|--process-impulse-dsp|--process-stream-dsp] {0..7} exact-chunk-0 ... exact-chunk-15 exact-memspec\n");
+		fprintf(stderr, "usage: vfio_realverb_sequence --cleanup | [--allocation|--process] exact-chunk-0 ... exact-chunk-15 [exact-memspec] | [--process-dsp|--process-readback-dsp|--process-snapshot-dsp|--process-public-snapshot-dsp|--process-impulse-dsp|--process-stream-dsp] {0..7} exact-chunk-0 ... exact-chunk-15 exact-memspec | --process-private-snapshot-dsp {0..7} {0..31} exact-chunk-0 ... exact-chunk-15 exact-memspec\n");
 		return EXIT_FAILURE;
 	}
 	if (sysconf(_SC_PAGESIZE) != PAGE_SIZE_4K) {
@@ -650,14 +748,18 @@ int main(int argc, char **argv)
 		}
 		if (process_probe) {
 			unsigned int channel, tick;
+			unsigned int command_stride = PROCESS_CHANNELS + 1 +
+				(process_readback_probe ? 1 : 0);
+			unsigned int response_stride = PROCESS_CHANNELS +
+				(process_readback_probe ? 1 : 0);
 
 			for (tick = 0; tick < process_ticks; tick++) {
 				for (channel = 0; channel < PROCESS_CHANNELS; channel++) {
 					unsigned int page = tick * PROCESS_CHANNELS + channel;
 					uint32_t *input_descriptor = ring_entry(memory, target_dsp, 0,
-						readback_index + tick * 3 + channel);
+						readback_index + tick * command_stride + channel);
 					uint32_t *output_descriptor = ring_entry(memory, target_dsp, 1,
-						RESOURCE_COUNT + page);
+						RESOURCE_COUNT + tick * response_stride + channel);
 					uint64_t input_iova = TEST_IOVA +
 						(PROCESS_INPUT_PAGE_BASE + page) *
 						(uint64_t)PAGE_SIZE_4K;
@@ -673,11 +775,30 @@ int main(int argc, char **argv)
 					output_descriptor[3] = (uint32_t)(output_iova >> 32);
 				}
 				command = ring_entry(memory, target_dsp, 0,
-					readback_index + tick * 3 + PROCESS_CHANNELS);
+					readback_index + tick * command_stride + PROCESS_CHANNELS);
 				command[0] = PROCESS_COMMAND_BASE | PROCESS_COMMAND_DWORDS;
-				command[1] = PROCESS_FLAGS;
+				command[1] = PROCESS_FLAGS | (process_readback_probe ? 2U : 0U);
 				command[2] = tick + 1;
 				command[3] = PROCESS_PLUGIN_ADDRESS;
+				if (process_readback_probe) {
+					uint32_t *readback_command = ring_entry(memory, target_dsp, 0,
+						readback_index + tick * command_stride +
+						PROCESS_CHANNELS + 1);
+					uint32_t *readback_descriptor = ring_entry(memory, target_dsp, 1,
+						RESOURCE_COUNT + tick * response_stride +
+						PROCESS_CHANNELS);
+					uint64_t readback_iova = TEST_IOVA +
+						READBACK_PAGE * (uint64_t)PAGE_SIZE_4K;
+
+					readback_command[0] = READBACK_COMMAND;
+					readback_command[1] = readback_private_address;
+					readback_command[2] = readback_dwords;
+					readback_command[3] = readback_resource_spec;
+					readback_descriptor[0] = 0x80000000U |
+						(readback_dwords + 2);
+					readback_descriptor[2] = (uint32_t)readback_iova;
+					readback_descriptor[3] = (uint32_t)(readback_iova >> 32);
+				}
 			}
 		} else {
 			command = ring_entry(memory, target_dsp, 0, readback_index);
@@ -882,8 +1003,12 @@ int main(int argc, char **argv)
 	    zero_consumed_count == ZERO_COMMAND_COUNT && memspec_consumed &&
 	    !interrupted) {
 		uint32_t expected_command_position = command_position +
-			process_ticks * (PROCESS_CHANNELS + 1);
+			process_ticks * (PROCESS_CHANNELS + 1 +
+				(process_readback_probe ? 1 : 0));
 		uint32_t expected_response_position = response_position +
+			process_ticks * (PROCESS_CHANNELS +
+				(process_readback_probe ? 1 : 0));
+		uint32_t expected_audio_response_position = response_position +
 			process_ticks * PROCESS_CHANNELS;
 		unsigned int channel, tick;
 
@@ -915,9 +1040,31 @@ int main(int argc, char **argv)
 			process_commands_consumed =
 				read32(bar, dsp_banks[target_dsp] + 0x28) ==
 				expected_command_position;
-			process_responses_consumed =
-				read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
-				expected_response_position;
+			{
+				uint32_t observed_response_position = read32(bar,
+					dsp_banks[target_dsp] + 0x40 + 0x28);
+
+				process_responses_consumed =
+					observed_response_position == expected_audio_response_position ||
+					observed_response_position == expected_response_position;
+			}
+			if (process_readback_probe) {
+				const uint32_t *response_buffer = (const uint32_t *)(memory +
+					READBACK_PAGE * PAGE_SIZE_4K);
+
+				readback_requested = true;
+				readback_command_consumed = process_commands_consumed;
+				readback_response_consumed =
+					read32(bar, dsp_banks[target_dsp] + 0x40 + 0x28) ==
+						expected_response_position;
+				for (word = 0; word < readback_dwords + 2; word++)
+					readback_response[word] = response_buffer[word];
+				readback_observed = response_buffer[0] != 0xa5a5a5a5U;
+				readback_response_valid =
+					response_buffer[0] ==
+						(0x80010000U | (readback_dwords + 2)) &&
+					response_buffer[1] == readback_resource_spec;
+			}
 			process_outputs_observed = true;
 			process_response_headers_valid = true;
 			process_input_roundtrip_valid = impulse_probe;
@@ -1005,6 +1152,9 @@ int main(int argc, char **argv)
 		readback_response_consumed = read32(bar,
 			dsp_banks[target_dsp] + 0x40 + 0x28) == expected_response_position;
 		readback_observed = response_buffer[0] != 0xa5a5a5a5U;
+		readback_response_valid = readback_observed &&
+			response_buffer[0] == (0x80010000U | READBACK_RESPONSE_WORDS) &&
+			response_buffer[1] == 0;
 	}
 
 	ready_after = all_ready(bar);
@@ -1024,7 +1174,8 @@ int main(int argc, char **argv)
 			non_target_indices_unchanged = false;
 	}
 	writes_bounded = memory_writes_bounded(memory, snapshot, process_probe,
-		process_ticks);
+		process_ticks, process_readback_probe ? readback_dwords + 2 :
+		READBACK_RESPONSE_WORDS);
 	if (cleanup_probe) {
 		if (!interrupted && unload_consumed_count == RESOURCE_COUNT &&
 		    ready_after && non_target_indices_unchanged && writes_bounded)
@@ -1038,6 +1189,10 @@ int main(int argc, char **argv)
 			    (process_requested && process_commands_consumed &&
 			     process_responses_consumed && process_outputs_observed &&
 			     process_response_headers_valid &&
+			     (!process_readback_probe ||
+			      (readback_requested && readback_command_consumed &&
+			       readback_response_consumed && readback_observed &&
+			       readback_response_valid)) &&
 			     (!impulse_probe || process_input_roundtrip_valid))) &&
 			   ready_after && non_target_indices_unchanged && writes_bounded) {
 		result = EXIT_SUCCESS;
@@ -1077,6 +1232,10 @@ cleanup:
 	printf("{\n");
 	printf("  \"experiment\": \"%s\",\n",
 	       cleanup_probe ? "033-realverb-resource-cleanup" :
+	       private_allocation_snapshot_probe ? "051-private-allocation-selector" :
+	       public_snapshot_probe ? "050-public-bill-readback-negative-control" :
+	       runtime_snapshot_probe ? "049-private-runtime-object-snapshot" :
+	       process_readback_probe ? "048-official-process-readback" :
 	       stream_probe ? "044-realverb-eight-tick-impulse-stream" :
 	       impulse_probe ? "042-realverb-impulse-buffer-job" :
 	       isolation_trial ? "041-realverb-bounded-process-isolation-trial" :
@@ -1138,7 +1297,8 @@ cleanup:
 	printf("  \"process_requested\": %s,\n",
 	       process_requested ? "true" : "false");
 	printf("  \"process_command\": [\"0x%08x\", \"0x%08x\", \"0x%08x\", \"0x%08x\"],\n",
-	       PROCESS_COMMAND_BASE | PROCESS_COMMAND_DWORDS, PROCESS_FLAGS, 1U,
+	       PROCESS_COMMAND_BASE | PROCESS_COMMAND_DWORDS,
+	       PROCESS_FLAGS | (process_readback_probe ? 2U : 0U), 1U,
 	       PROCESS_PLUGIN_ADDRESS);
 	printf("  \"process_property_7\": \"0x%08x\",\n", PROCESS_PROPERTY_7);
 	printf("  \"process_ticks\": %u,\n", process_ticks);
@@ -1186,8 +1346,23 @@ cleanup:
 	printf("  \"readback_requested_after_complete_pass\": %s,\n",
 	       readback_requested ? "true" : "false");
 	printf("  \"readback_address_dwords\": \"0x%08x\",\n",
+	       process_readback_probe ? readback_private_address :
 	       resources[0].allocation);
-	printf("  \"readback_dwords\": %u,\n", READBACK_DWORDS);
+	printf("  \"readback_resource_spec\": \"0x%08x\",\n",
+	       process_readback_probe ? readback_resource_spec : 0U);
+	printf("  \"readback_dwords\": %u,\n",
+	       process_readback_probe ? readback_dwords : READBACK_DWORDS);
+	printf("  \"runtime_snapshot_requested\": %s,\n",
+	       runtime_snapshot_probe ? "true" : "false");
+	printf("  \"public_snapshot_requested\": %s,\n",
+	       public_snapshot_probe ? "true" : "false");
+	printf("  \"private_allocation_snapshot_requested\": %s,\n",
+	       private_allocation_snapshot_probe ? "true" : "false");
+	if (private_allocation_snapshot_probe)
+		printf("  \"private_allocation_index\": %u,\n",
+		       private_snapshot_index);
+	else
+		printf("  \"private_allocation_index\": null,\n");
 	printf("  \"readback_polls_ms\": %u,\n", readback_polls);
 	printf("  \"readback_command_consumed\": %s,\n",
 	       readback_command_consumed ? "true" : "false");
@@ -1195,10 +1370,15 @@ cleanup:
 	       readback_response_consumed ? "true" : "false");
 	printf("  \"readback_observed\": %s,\n",
 	       readback_observed ? "true" : "false");
+	printf("  \"readback_response_valid\": %s,\n",
+	       readback_response_valid ? "true" : "false");
 	printf("  \"readback_response\": [");
-	for (word = 0; word < READBACK_RESPONSE_WORDS; word++)
+	for (word = 0; word < (readback_requested ?
+		(process_readback_probe ? readback_dwords + 2 : READBACK_RESPONSE_WORDS) : 0);
+	     word++)
 		printf("\"0x%08x\"%s", readback_response[word],
-		       word + 1 == READBACK_RESPONSE_WORDS ? "" : ", ");
+		       word + 1 == (process_readback_probe ? readback_dwords + 2 :
+		       READBACK_RESPONSE_WORDS) ? "" : ", ");
 	printf("],\n");
 	printf("  \"non_target_ring_indices_unchanged\": %s,\n",
 	       non_target_indices_unchanged ? "true" : "false");

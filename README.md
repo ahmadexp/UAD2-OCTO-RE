@@ -34,6 +34,17 @@ reverb tail. This proves the host-to-DSP buffer layout, request correlation,
 bounded output, and completion ABI. It does not prove that the RealVerb wet
 algorithm is active.
 
+The official Process-coupled readback path is now working. A live capture of
+the exact native allocation record fixes its length at `0x0af8` bytes and
+declares one readback from private resource 0. Linux reproduced it and received
+the valid response `80010006 000001a3 00000000 00000000 00000000 00000000`.
+A bounded snapshot of the complete 430-dword private Process object contains
+398 zeros and exactly 32 allocation addresses at the 32 host relocation
+destinations. The object is a runtime control block, not a clear executable.
+The same operation cannot read the public Bill pool: a 64-dword negative
+control at `0x000e0000` consumed its command but left its response canary
+untouched.
+
 Linux ABI version 2 now provides opaque coherent-buffer handles, bounded
 `mmap`, exact authorized-bundle loading, synchronous job submission, completion
 retrieval, and all-eight target selection. A Secure Boot signed module passed
@@ -50,6 +61,11 @@ compression, digest, or repeated-block hypotheses. The inner authentication or
 encryption algorithm, key source, clear segment format, DSP-side relocations,
 entry point, and runtime reservations remain unknown. The current API can run
 the captured official workload only, not user-authored code.
+
+A metadata-only scan also tested all 45,398 possible byte offsets across the
+26 transmitted RealVerb Bill bodies for documented standard SHARC loader tags,
+using both 32-bit word endiannesses. It found no plausible header. The current
+evidence therefore rejects a clear standard CCES/LDR stream inside this corpus.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -88,10 +104,11 @@ is documented but intentionally unexecuted.
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
 | `Bill` DSP resource acceptance | Exact `0x12b` success from Linux on all eight DSPs | [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md) |
-| Complete RealVerb resource pass | All 13 exact resources accepted sequentially on DSP0; fixed post-pass readback remained unanswered | [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md) |
+| Complete RealVerb resource pass | All 13 exact resources accepted sequentially on DSP0 | [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md) |
 | Resource cleanup and allocation | Exact unloads, 33 private-resource zero commands, and 65-dword memory specification consumed | [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md) |
 | `Bill` inner integrity | Prefix and core one-bit changes rejected; algorithm unresolved | [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md) |
-| Host runtime relocation and Process ABI | Allocation record, memory-spec patch, first-private-resource pointer, buffers, request counter, and response layout recovered | [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md) |
+| Host runtime relocation and Process ABI | Exact `0x0af8` allocation record, every memory-spec patch, private-object snapshot, Process pointer, buffers, request counter, and response layout recovered | [`docs/experiment-048-050-runtime-readback.md`](docs/experiment-048-050-runtime-readback.md) |
+| Official Process readback | Valid private-resource response and complete bounded 430-dword snapshot; public Bill negative control unanswered | [`docs/experiment-048-050-runtime-readback.md`](docs/experiment-048-050-runtime-readback.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
@@ -148,6 +165,7 @@ these tools on an older profile.
 - [`docs/experiment-032-complete-realverb-resource-pass.md`](docs/experiment-032-complete-realverb-resource-pass.md): all 13 exact resources accepted with bounded post-pass readback
 - [`docs/experiment-033-034-resource-lifecycle-and-allocation.md`](docs/experiment-033-034-resource-lifecycle-and-allocation.md): exact lifecycle semantics, cleanup, and fail-closed allocation preflight
 - [`docs/experiment-039-047-process-api-isolation.md`](docs/experiment-039-047-process-api-isolation.md): corrected Process pointer, bounded buffers, ABI v2, rejection recovery, and all-eight isolation
+- [`docs/experiment-048-050-runtime-readback.md`](docs/experiment-048-050-runtime-readback.md): native allocation capture, valid readback, full private-object relocation snapshot, and public-pool negative control
 - [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
@@ -285,6 +303,13 @@ not justified.
     through buffer, load, submit, and completion calls on all eight DSPs.
 47. Mutate one bundle byte, observe `EKEYREJECTED`, then immediately run the
     unchanged bundle and verify exact recovery.
+48. Capture the exact `0x0af8` native allocation record, reproduce its
+    Process-coupled readback, and receive a valid six-dword response.
+49. Read exactly the known 430-dword first private resource. Verify that its 32
+    nonzero words match all 32 host memory-spec patch destinations.
+50. Request 64 known dwords from the first public Bill allocation as a bounded
+    negative control. The command is consumed, the response is not, and the
+    canary remains unchanged.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:
@@ -353,6 +378,14 @@ without emitting resource bytes:
 
 ```bash
 python3 tools/analyze_bill_resources.py --recursive /path/to/extracted-cabinet
+```
+
+The same analyzer now tests standard SHARC loader-header framing over the
+post-transform wire bodies. Native allocation captures produced by the
+documented forwarding shim can be decoded without printing resource bytes:
+
+```bash
+python3 tools/inspect_plugin_alloc_capture.py /path/to/allocinfo.bin
 ```
 
 A hash-locked public capture can be compared with the official cabinet without

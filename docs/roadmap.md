@@ -27,6 +27,14 @@ remaining goal is user control over the ADSP-21469 instruction stream.
 - [x] Accept the complete 13-resource RealVerb sequence from Linux.
 - [x] Recover 33 private allocations and the 65-dword memory specification.
 - [x] Recover the first-private-resource Process pointer and buffer ABI.
+- [x] Capture the exact native allocation record and its readback specification.
+- [x] Receive a valid Process-coupled resource-readback response.
+- [x] Snapshot the complete private Process object and verify every host patch.
+- [x] Rule out clear standard SHARC LDR headers in the RealVerb wire bodies.
+- [x] Rule out the official readback operation as a public Bill pool oracle.
+- [ ] Test one additional known private-resource selector after a fresh
+      official activation; the bounded selector probe is implemented, but its
+      first attempt stopped at the stale framework prerequisite.
 - [ ] Identify the inner authentication or encryption algorithm and key source.
 - [ ] Decode clear code and data segments.
 - [ ] Decode DSP-side relocation records and arithmetic.
@@ -35,6 +43,8 @@ remaining goal is user control over the ADSP-21469 instruction stream.
 The exact RealVerb DLL provides 13 adjacent generation-1/generation-2 pairs.
 Their cores have near-random cross-generation differences, no standard
 decompression succeeds, and tested digest and repeated-block hypotheses fail.
+The exact wire bodies also contain no plausible standard SHARC loader headers
+at any byte offset in either word endianness.
 The physical device also rejects mutations in both the prefix and core. This
 is strong evidence that the remaining format is cryptographically protected,
 not a plaintext table awaiting a conventional parser.
@@ -77,7 +87,9 @@ plug-in.
 - [ ] Build an offline validator for its segments, relocations, entry point,
       and reserved ranges.
 - [ ] Create a minimal DSP0 heartbeat that touches one assigned buffer only.
-- [ ] Demonstrate `out[i] = in[i] + constant`.
+- [ ] Demonstrate a fixed `out[i] = a * in[i] + b` affine kernel.
+- [ ] Add one stateful biquad, then a short FIR after affine isolation passes.
+- [ ] Add partitioned convolution only after the overlay and memory ABI is known.
 - [ ] Inject timeout and bounded IOMMU faults on each target DSP.
 - [ ] Run concurrent programs only after single-target fault recovery passes.
 
@@ -86,7 +98,7 @@ plug-in.
 | Goal | Blocking evidence | Required next evidence |
 |---|---|---|
 | inner authentication | prefix and core mutations are rejected; host parser performs no cryptography | DSP-side decode trace, lawful development artifact, or documented format |
-| clear executable | inner cores are high-entropy and generation-specific | one authenticated object paired with its clear build product |
+| clear executable | inner cores are high-entropy and generation-specific; the private Process object contains only host pointers; standard LDR framing is absent | one authenticated object paired with its clear build product |
 | DSP-side relocation | outer mapped-resource patches are known, but no inner records are visible | decoded segment image plus before-and-after loader memory trace |
 | custom entry point | Process enters the official private object, not a user-selected address | decoded module metadata or vendor development ABI |
 | hostile-code isolation | no accepted program can intentionally hang or fault | accepted minimal custom program with bounded fault variants |

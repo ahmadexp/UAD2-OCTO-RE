@@ -90,6 +90,8 @@
   with counter- and channel-correlated completion records, while non-target
   ring indices remain unchanged. The Linux ABI now implements owned buffers,
   authorized program loading, synchronous submission, and completion retrieval.
+  A Process-coupled readback returns a valid response, and a complete
+  430-dword private-object snapshot verifies every host relocation target.
   The inner executable, authentication or encryption algorithm, DSP-side
   relocation, entry point, and runtime reservations remain unresolved, so the
   stack cannot load user-authored general-purpose code.
@@ -222,6 +224,7 @@ Per-DSP reset on an empty transport & Confirmed & Each engine can be pulsed and 
 Valid runtime response & Confirmed & Linux query 026 returns the exact five-dword response form in 1 ms; the official path also returns a decoded 768-entry authorization table. \\
 Authenticated resource transport & Confirmed & Exact resource \texttt{0x12b} succeeds on DSP0 through DSP7; all 13 resources in the captured RealVerb pass succeed on DSP0; sampled one-bit changes are rejected. \\
 Host allocation and Process ABI & Confirmed & The official host stores the first private mapped resource at instance offset \texttt{0xbd8} and places that address in word 3 of command \texttt{0x000b0004}. \\
+Private Process readback & Confirmed & The native \texttt{0x0af8}-byte allocation record declares one readback; Linux receives \texttt{0x80010006} and snapshots all 430 known private-object dwords. \\
 Authorized bounded buffer execution & Confirmed & A 64-sample stereo job completes with exact zero and opposed half-scale impulse round trips independently on DSP0 through DSP7. \\
 User-authored general-purpose program & Not achieved & The captured official program is not a controlled implementation of a benchmark kernel, so no matched UAD workload can yet be compared for speed. \\
 GPU comparison dataset & Not achieved & A preliminary affine baseline does not provide a matched UAD result, power trace, or crossover dataset. \\
@@ -257,8 +260,8 @@ results prove response transport, whole-body integrity enforcement, and loader
 targeting. They do not reveal the clear executable or activate an entry point
 \cite{uad-project}.
 
-Static analysis of the plug-in runtime identifies a fixed
-\texttt{0x0af0}-byte allocation record, 16-byte memory-spec entries, 8-byte
+Static analysis and two repeatable live captures identify a fixed
+\texttt{0x0af8}-byte allocation record, 16-byte memory-spec entries, 8-byte
 readback specs, and mapped-address patching through command class
 \texttt{0x00150000}. The complete first RealVerb allocation contains 13
 authenticated objects. Every object returns a resource- and command-correlated
@@ -284,6 +287,28 @@ ring indices unchanged. A one-byte authenticated-resource mutation is rejected,
 after which the exact bundle succeeds without a cold reboot. These results close
 the official program-buffer path, but they neither expose the encrypted inner
 executable nor establish a user-controlled DSP entry point \cite{uad-project}.
+
+The native record declares one four-dword readback from private resource zero
+at offset 419. Reproducing it inside Process changes the main flags from
+\texttt{0x00400000} to \texttt{0x00400002} and returns
+\texttt{80010006 000001a3 00000000 00000000 00000000 00000000}. A second
+bounded request recovers all 430 known dwords of the first private resource.
+Exactly 32 are nonzero, their offsets equal all 32 later memory-spec patch
+destinations, and their values equal the corresponding allocation addresses.
+The other 398 dwords are zero. This proves the Process object is a host-patched
+runtime control block rather than a clear executable. A 64-dword negative
+control at the first public Bill allocation consumes its command but leaves the
+response canary unchanged \cite{uad-project}.
+
+Analog Devices' ordinary SHARC loader format uses three-word block headers with
+documented final, zero-fill, and initialized-data tags
+\cite{adi-cces-loader}. A metadata-only scan tested every byte offset of all 26
+post-transform RealVerb Bill bodies under both 32-bit word endiannesses. None
+of 45,398 offsets forms a plausible standard loader header. The internal RAM
+regions documented for ADSP-21469 include the address ranges used by the live
+private and public allocations \cite{adi-adsp21469-ezboard}. These results rule
+out clear ordinary LDR framing in this corpus, but do not identify one specific
+cryptographic construction.
 
 The processor identification is now direct at the component level. All eight
 packages visibly carry \texttt{ADSP-21469} and \texttt{KBCZ-00}; the central
@@ -502,6 +527,8 @@ and output buffers, exact authorized RealVerb loading, synchronous submission,
 and completion retrieval. The captured allocation completes and one opposed
 half-scale stereo impulse returns exactly through 64-sample buffers on every
 DSP. This closes the host buffer semantics needed for the official workload.
+The exact private readback specification, full runtime control object, and all
+32 outer relocation destinations are also verified dynamically.
 The remaining gate is a user-authored OCTO executable with proven segments,
 DSP-side relocations, entry point, reserved ranges, and lawful authentication.
 The captured official job cannot substitute for the affine benchmark because
@@ -606,9 +633,13 @@ without converting an architectural intuition into an unsupported result.
 The authorized RealVerb allocation now produces bounded, input-dependent output
 and survives reset and IOMMU cleanup on all eight targets. The host runtime
 address-patch, first-private-resource Process pointer, buffer objects, request
-correlation, completion record, and normal target isolation are recovered. A
+correlation, completion record, private readback, complete 430-dword control
+object, and normal target isolation are recovered. A
 one-byte resource mutation is rejected and recovery permits an immediate exact
-retry. Until the inner executable, authentication or encryption algorithm,
+retry. The private object contains allocation pointers rather than code, the
+public Bill pool is not readable through this operation, and the transmitted
+Bill bodies do not expose standard SHARC loader headers. Until the inner
+executable, authentication or encryption algorithm,
 DSP-side relocation, entry point, and runtime reservations are recovered, the
 defensible finding is an authorized-workload execution and isolation
 foundation, not general-purpose performance superiority.

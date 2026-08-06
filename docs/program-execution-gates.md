@@ -14,8 +14,11 @@ The following fields are now proven on the exact OCTO target:
 | public resources | 13 exact generation-2 Bill objects, accepted in order |
 | private allocations | 33 `0x00080004` zero commands |
 | relocation layer | 65-dword `0x00150041` memory specification using mapped resource plus low-24-bit offset |
+| native allocation metadata | repeatable `0x0af8`-byte record, 26 resources, 33 memory specs, one readback spec |
 | Process object | mapped first private resource at `0x0009d00a` |
 | main command | `0x000b0004`, flags `0x00400000`, request ID, Process object |
+| Process readback | flag `0x2` plus `0x000c0004`; valid private-resource response `0x80010006` |
+| private object snapshot | all 430 dwords; 398 zero and 32 exact host-patched addresses |
 | input | two 66-dword channel objects, 64 samples at word two |
 | output | two 68-dword channel objects, 64 samples at word four |
 | completion | `0x80020044`, request ID, channel, marker `0xf001000e` |
@@ -45,6 +48,11 @@ official workload:
 No reverb tail appears in the eight-tick stream. The result may be a default,
 bypassed, or not-yet-configured RealVerb state. It proves the framework buffer
 path, not a wet-effect claim and not a user-authored instruction stream.
+
+The complete private-object snapshot also proves that the Process pointer is
+not a hidden instruction image. A public Bill readback negative control is
+consumed without a response, so the official operation does not expose the
+opaque executable pool.
 
 ## Linux API version 2
 
@@ -88,7 +96,7 @@ unknowns:
 
 | Required field | Current state |
 |---|---|
-| inner clear executable | unknown; core is high-entropy and mutation-protected |
+| inner clear executable | unknown; core is high-entropy, mutation-protected, and has no clear standard SHARC LDR headers |
 | authentication or encryption algorithm | unknown |
 | key source or lawful object creator | unknown |
 | code and data segment records | unknown |
@@ -97,8 +105,8 @@ unknowns:
 | stack, interrupt, circular-buffer, and overlay reservations | unknown |
 | custom-program timeout behavior | untestable without an accepted custom object |
 
-The first custom payload, once these rules are known, should increment a
-counter in one dedicated buffer and return. It must not access audio I/O,
+The first custom payload, once these rules are known, should compute a fixed
+affine transform in one dedicated 64-sample buffer and return. It must not access audio I/O,
 flash, FPGA configuration, other DSPs, or unrestricted host addresses.
 
 ## Isolation status

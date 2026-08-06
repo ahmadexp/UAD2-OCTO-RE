@@ -862,7 +862,7 @@ class BillResourceAnalyzerTests(unittest.TestCase):
         )
         for hypothesis in result["direct_sha256_hypotheses"].values():
             self.assertEqual(hypothesis, {"eligible": 2, "matches": 0})
-        self.assertEqual(result["schema"], 2)
+        self.assertEqual(result["schema"], 3)
         self.assertEqual(result["entropy_bits_per_byte"]["inner_core"]["count"], 1)
         self.assertEqual(
             result["standard_digest_subsequence_hypotheses"]["sha256_inner_core"],
@@ -872,6 +872,69 @@ class BillResourceAnalyzerTests(unittest.TestCase):
             result["aligned_16_byte_block_tests"]["distinct_blocks_shared_by_multiple_unique_resources"],
             0,
         )
+        self.assertEqual(
+            result["standard_sharc_ldr_wire_body_scan"]["candidate_count"], 0
+        )
+
+    def test_standard_sharc_loader_scan_recognizes_both_word_endiannesses(self):
+        module = load_tool("analyze_bill_resources")
+        little = struct.pack("<III", 0x5, 5, 0x8C100) + bytes(30)
+        big = struct.pack(">III", 0x2, 17, 0x8C105)
+
+        little_result = module.scan_standard_sharc_ldr_headers(little)
+        big_result = module.scan_standard_sharc_ldr_headers(big)
+
+        self.assertEqual(
+            little_result["candidates_by_endian_and_tag"]["little"]["INIT_L48"],
+            1,
+        )
+        self.assertEqual(
+            big_result["candidates_by_endian_and_tag"]["big"]["ZERO_L48"],
+            1,
+        )
+
+
+class PluginAllocationCaptureTests(unittest.TestCase):
+    def test_capture_parser_decodes_native_counts_and_scrubs_pointers(self):
+        module = load_tool("inspect_plugin_alloc_capture")
+        record = bytearray(module.RECORD_SIZE)
+        struct.pack_into("<II", record, 0, module.RECORD_SIZE, 2)
+        struct.pack_into("<QQ", record, 8, 0x7FF600001000, 0x7FF600001120)
+        struct.pack_into("<I", record, 0x188, 1)
+        struct.pack_into("<IIII", record, 0x18C, 1, 430, 0xFFFFFFFF, 0)
+        struct.pack_into("<I", record, 0x98C, 1)
+        struct.pack_into("<II", record, 0x990, 419, 4)
+        capture = (
+            module.CAPTURE_HEADER.pack(module.CAPTURE_MAGIC, 1, 1)
+            + module.RECORD_ENVELOPE.pack(module.RECORD_SIZE, 0x7FF600000000, 0)
+            + record
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "allocation.bin"
+            path.write_bytes(capture)
+            result = module.inspect(path)
+
+        decoded = result["records"][0]
+        self.assertEqual(decoded["record_bytes"], 0xAF8)
+        self.assertEqual(decoded["resource_relative_offsets"], [0, 0x120])
+        self.assertEqual(decoded["memory_specs"][0]["word1"], 430)
+        self.assertEqual(
+            decoded["readbacks"][0],
+            {"index": 0, "resource": 0, "dword_offset": 419, "dword_count": 4},
+        )
+        self.assertEqual(len(decoded["record_sha256_pointer_scrubbed"]), 64)
+
+    def test_capture_proxy_forwards_the_original_record_unchanged(self):
+        source = (
+            ROOT / "tools" / "windows" / "uad2_alloc_capture_proxy.c"
+        ).read_text()
+        exports = (
+            ROOT / "tools" / "windows" / "uad2_alloc_capture_proxy.def"
+        ).read_text()
+        self.assertIn("count < 32", source)
+        self.assertIn("record_size < 0xac8 || record_size > 0x4000", source)
+        self.assertIn("return function.typed(version, allocation, status);", source)
+        self.assertIn("CreateUAD2PlugIn2=wrap_CreateUAD2PlugIn2 @8", exports)
 
 
 class PublicBillCorpusAuditTests(unittest.TestCase):
@@ -1024,6 +1087,8 @@ class ProgramRuntimeABITests(unittest.TestCase):
         self.assertIn("first private resource", meanings)
         self.assertIn("four-dword main command", meanings)
         self.assertNotIn("authorization change", meanings.lower())
+        source = (ROOT / "tools" / "inspect_program_runtime_abi.py").read_text()
+        self.assertIn('"native_bytes": 0xAF8', source)
 
 
 class Experiment032SourceTests(unittest.TestCase):
@@ -1068,6 +1133,25 @@ class Experiment032SourceTests(unittest.TestCase):
             wrapper,
         )
         self.assertIn("bus mastering was enabled before VFIO bind", wrapper)
+
+    def test_process_coupled_readback_modes_are_bounded_and_fail_closed(self):
+        source = (ROOT / "tools" / "vfio_realverb_sequence.c").read_text()
+        wrapper = (ROOT / "tools" / "uad2-vfio-realverb-sequence.sh").read_text()
+        self.assertIn("#define READBACK_MAX_DWORDS 430", source)
+        self.assertIn("#define READBACK_PRIVATE_OFFSET 419", source)
+        self.assertIn("PROCESS_FLAGS | (process_readback_probe ? 2U : 0U)", source)
+        self.assertIn("readback_response_valid", source)
+        self.assertIn('strcmp(argv[1], "--process-readback-dsp")', source)
+        self.assertIn('strcmp(argv[1], "--process-snapshot-dsp")', source)
+        self.assertIn('strcmp(argv[1], "--process-public-snapshot-dsp")', source)
+        self.assertIn('strcmp(argv[1], "--process-private-snapshot-dsp")', source)
+        self.assertIn("parsed_index >= ZERO_COMMAND_COUNT - 1", source)
+        self.assertIn("zero_commands[parsed_index][3] > READBACK_MAX_DWORDS", source)
+        self.assertIn('[ "$1" = "--process-readback-dsp" ]', wrapper)
+        self.assertIn('[ "$1" = "--process-snapshot-dsp" ]', wrapper)
+        self.assertIn('[ "$1" = "--process-public-snapshot-dsp" ]', wrapper)
+        self.assertIn('[ "$1" = "--process-private-snapshot-dsp" ]', wrapper)
+        self.assertIn("UAD2_ALLOW_BOUNDED_PRIVATE_READBACK", wrapper)
 
 
 class Experiment018SourceTests(unittest.TestCase):

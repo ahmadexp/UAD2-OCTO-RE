@@ -18,7 +18,7 @@ from pathlib import Path
 import struct
 import zlib
 
-from inspect_bill_container import HEADER_SIZE
+from inspect_bill_container import HEADER_SIZE, parse
 from scan_bill_resources import iter_files, scan_bytes
 
 
@@ -52,6 +52,65 @@ DIGEST_FACTORIES = {
     "blake2s": hashlib.blake2s,
     "blake2b": hashlib.blake2b,
 }
+
+# The standard SHARC loader block tags documented by Analog Devices.  A binary
+# loader block begins with three 32-bit words: tag, count, and target.  Bill is
+# not assumed to use this format.  We scan for it as a falsifiable cleartext
+# hypothesis and publish only aggregate candidate counts.
+SHARC_LDR_TAGS = {
+    0x0: "FINAL_INIT",
+    0x1: "ZERO_LDATA",
+    0x2: "ZERO_L48",
+    0x3: "INIT_L16",
+    0x4: "INIT_L32",
+    0x5: "INIT_L48",
+    0x6: "INIT_L64",
+    0x7: "ZERO_EXT8",
+    0x8: "ZERO_EXT16",
+    0x9: "INIT_EXT8",
+    0xA: "INIT_EXT16",
+}
+SHARC_LDR_INIT_BYTES_PER_WORD = {
+    0x3: 2,
+    0x4: 4,
+    0x5: 6,
+    0x6: 8,
+    0x9: 1,
+    0xA: 2,
+}
+SHARC_LDR_MAX_COUNT = 0x100000
+
+
+def scan_standard_sharc_ldr_headers(data: bytes) -> dict[str, object]:
+    """Count plausible clear standard SHARC loader headers without emitting data."""
+    by_endian: dict[str, Counter[str]] = {
+        "little": Counter(),
+        "big": Counter(),
+    }
+    scanned = max(0, len(data) - 11)
+    for offset in range(scanned):
+        remaining = len(data) - offset - 12
+        for endian, layout in (("little", "<III"), ("big", ">III")):
+            tag, count, target = struct.unpack_from(layout, data, offset)
+            if tag not in SHARC_LDR_TAGS or target == 0:
+                continue
+            if tag == 0:
+                if count != 0:
+                    continue
+            elif count == 0 or count > SHARC_LDR_MAX_COUNT:
+                continue
+            bytes_per_word = SHARC_LDR_INIT_BYTES_PER_WORD.get(tag)
+            if bytes_per_word is not None and count * bytes_per_word > remaining:
+                continue
+            by_endian[endian][SHARC_LDR_TAGS[tag]] += 1
+    return {
+        "byte_offsets_scanned": scanned,
+        "candidate_count": sum(sum(counter.values()) for counter in by_endian.values()),
+        "candidates_by_endian_and_tag": {
+            endian: {tag: counter[tag] for tag in sorted(counter)}
+            for endian, counter in by_endian.items()
+        },
+    }
 
 
 def _entropy(data: bytes) -> float:
@@ -135,6 +194,8 @@ def analyze_files(paths: list[Path]) -> dict[str, object]:
     core_entropy: list[float] = []
     core_zlib_ratio: list[float] = []
     duplicate_blocks_per_resource: list[float] = []
+    ldr_offsets_scanned = 0
+    ldr_candidates: Counter[str] = Counter()
 
     unique: dict[str, tuple[dict[str, object], bytes]] = {}
     for resource, raw in instances:
@@ -170,6 +231,12 @@ def analyze_files(paths: list[Path]) -> dict[str, object]:
         preserved = int(resource["preserved_bytes"])
         prefix = raw[HEADER_SIZE:preserved]
         core = raw[preserved:]
+        wire_body = bytes(parse(raw)["transformed"])[HEADER_SIZE:]
+        ldr_scan = scan_standard_sharc_ldr_headers(wire_body)
+        ldr_offsets_scanned += int(ldr_scan["byte_offsets_scanned"])
+        for endian, tags in dict(ldr_scan["candidates_by_endian_and_tag"]).items():
+            for tag, count in dict(tags).items():
+                ldr_candidates[f"{endian}:{tag}"] += int(count)
         prefix_entropy.append(_entropy(prefix))
         core_entropy.append(_entropy(core))
         if core:
@@ -247,7 +314,7 @@ def analyze_files(paths: list[Path]) -> dict[str, object]:
     shared_blocks = [owners for owners in global_block_owners.values() if len(owners) > 1]
 
     return {
-        "schema": 2,
+        "schema": 3,
         "input_files": len(paths),
         "files_with_resources": files_with_resources,
         "resource_instances": len(instances),
@@ -281,6 +348,14 @@ def analyze_files(paths: list[Path]) -> dict[str, object]:
             "duplicate_fraction_within_unique_resource": _summary(duplicate_blocks_per_resource),
             "distinct_blocks_shared_by_multiple_unique_resources": len(shared_blocks),
             "maximum_unique_resource_owners_for_one_block": max((len(owners) for owners in shared_blocks), default=0),
+        },
+        "standard_sharc_ldr_wire_body_scan": {
+            "byte_offsets_scanned": ldr_offsets_scanned,
+            "candidate_count": sum(ldr_candidates.values()),
+            "candidates_by_endian_and_tag": {
+                key: ldr_candidates[key] for key in sorted(ldr_candidates)
+            },
+            "scope": "transmitted Bill body after the documented host tail transform",
         },
         "adjacent_generation_1_2_pairs": {
             "count": len(adjacent_generation_pairs),

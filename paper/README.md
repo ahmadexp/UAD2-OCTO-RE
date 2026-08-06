@@ -11,6 +11,13 @@ completed UAD-versus-GPU comparison. The manuscript defines the workloads,
 baselines, metrics, sampling plan, and decision rule needed to make a defensible
 comparison after custom execution is available.
 
+The current evidence also includes a valid Process-coupled private-resource
+readback, a complete 430-dword runtime-object snapshot, and an exact match
+between all 32 nonzero words and the host relocation destinations. A bounded
+public Bill readback negative control remains unanswered. These findings close
+the private runtime layout, but do not expose a user-authored instruction
+stream.
+
 Build from this directory:
 
 ```sh

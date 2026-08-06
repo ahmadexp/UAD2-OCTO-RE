@@ -229,6 +229,20 @@ Seven later zero ticks also return zero. This establishes the official
 program-visible buffer and completion path. It does not decode the inner
 program or prove wet RealVerb processing.
 
+Experiments 048 and 049 finally invoke `0x000c0004` inside the exact Process
+context with flag `0x2`. The four-dword readback declared by the native
+allocation record returns a valid six-dword response. Reading the complete
+known 430-dword first private resource returns 398 zeros and exactly 32 mapped
+allocation addresses at the 32 host memory-spec destination offsets. This
+proves that the private Process resource is a runtime control block patched by
+the host, not a clear copy of the inner Bill executable.
+
+Experiment 050 supplies the first public Bill allocation as a bounded negative
+control. Its command is consumed, but its response descriptor and canary remain
+unchanged. The readback operation cannot be used as an unrestricted public Bill
+pool oracle. See
+[`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md).
+
 This rules out recovering segments, relocations, or entry points by calling an
 unnoticed host parser. The remaining evidence path is the DSP-side consumer:
 a lawful post-decode memory trace, a documented debug interface, or a clear
@@ -283,6 +297,9 @@ vendor bytes. Across the 69 unique resources:
   magic, and no standard decompressor candidate succeeds;
 - no resource repeats an aligned 16-byte block internally;
 - no aligned 16-byte core block is shared by two different unique resources;
+- a standard SHARC loader scan tests every wire-body byte offset in both
+  32-bit word endiannesses for all documented tags; the exact 26-object
+  RealVerb corpus produces zero candidates across 45,398 tested offsets;
 - CRC-32 and Adler-32 of either the core or complete body match no dword in
   the corresponding prefix;
 - resource ID, attributes, core size, and file size likewise match no prefix

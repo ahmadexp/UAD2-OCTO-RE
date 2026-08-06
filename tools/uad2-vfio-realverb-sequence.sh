@@ -8,6 +8,7 @@ PROBE="/tmp/uad2-vfio-realverb-sequence"
 
 MODE=""
 TARGET_DSP=""
+PRIVATE_INDEX=""
 if [ "$#" -eq 1 ] && [ "$1" = "--cleanup" ]; then
 	MODE="$1"
 	shift
@@ -17,11 +18,20 @@ elif [ "$#" -eq 2 ] &&
 	shift
 elif [ "$#" -eq 3 ] &&
      { [ "$1" = "--process-dsp" ] ||
+       [ "$1" = "--process-readback-dsp" ] ||
+       [ "$1" = "--process-snapshot-dsp" ] ||
+       [ "$1" = "--process-public-snapshot-dsp" ] ||
        [ "$1" = "--process-impulse-dsp" ] ||
        [ "$1" = "--process-stream-dsp" ]; }; then
 	MODE="$1"
 	TARGET_DSP="$2"
 	shift 2
+elif [ "$#" -eq 4 ] &&
+     [ "$1" = "--process-private-snapshot-dsp" ]; then
+	MODE="$1"
+	TARGET_DSP="$2"
+	PRIVATE_INDEX="$3"
+	shift 3
 fi
 if [ "$(id -u)" -ne 0 ] ||
    { [ "$MODE" = "--cleanup" ] && [ "$#" -ne 0 ]; } ||
@@ -49,6 +59,9 @@ if [ "$MODE" = "--process" ] &&
 	exit 1
 fi
 if [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-readback-dsp" ] ||
+   [ "$MODE" = "--process-snapshot-dsp" ] ||
+   [ "$MODE" = "--process-public-snapshot-dsp" ] ||
    [ "$MODE" = "--process-impulse-dsp" ] ||
    [ "$MODE" = "--process-stream-dsp" ]; then
 	case "$TARGET_DSP" in
@@ -58,6 +71,23 @@ if [ "$MODE" = "--process-dsp" ] ||
 	if [ "${UAD2_ALLOW_BOUNDED_PROCESS-}" != \
 	     "YES_I_ACCEPT_ONE_64_SAMPLE_REALVERB_PROCESS" ]; then
 		echo "refusing: set the bounded Process acknowledgement" >&2
+		exit 1
+	fi
+fi
+if [ "$MODE" = "--process-private-snapshot-dsp" ]; then
+	case "$TARGET_DSP" in
+		0|1|2|3|4|5|6|7) ;;
+		*) echo "refusing: target DSP must be 0 through 7" >&2; exit 1 ;;
+	esac
+	case "$PRIVATE_INDEX" in
+		0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31) ;;
+		*) echo "refusing: private allocation index must be 0 through 31" >&2; exit 1 ;;
+	esac
+	if [ "${UAD2_ALLOW_BOUNDED_PROCESS-}" != \
+	     "YES_I_ACCEPT_ONE_64_SAMPLE_REALVERB_PROCESS" ] ||
+	   [ "${UAD2_ALLOW_BOUNDED_PRIVATE_READBACK-}" != \
+	     "YES_I_ACCEPT_ONE_KNOWN_PRIVATE_ALLOCATION_READBACK" ]; then
+		echo "refusing: set the bounded Process and private-readback acknowledgements" >&2
 		exit 1
 	fi
 fi
@@ -93,6 +123,10 @@ if [ "$MODE" != "--cleanup" ]; then
 fi
 if [ "$MODE" = "--allocation" ] || [ "$MODE" = "--process" ] ||
    [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-readback-dsp" ] ||
+   [ "$MODE" = "--process-snapshot-dsp" ] ||
+   [ "$MODE" = "--process-public-snapshot-dsp" ] ||
+   [ "$MODE" = "--process-private-snapshot-dsp" ] ||
    [ "$MODE" = "--process-impulse-dsp" ] ||
    [ "$MODE" = "--process-stream-dsp" ]; then
 	verify_chunk boundary-0058/command-0051-target.bin fe326c8a6a7d0b40e7958c14debe8ea1bc8d0fb160f7816bbaf9899b83590e84
@@ -168,13 +202,26 @@ set -- \
 	"$CAPTURE_ROOT/boundary-0024/command-0017-target.bin"
 if [ "$MODE" = "--allocation" ] || [ "$MODE" = "--process" ] ||
    [ "$MODE" = "--process-dsp" ] ||
+   [ "$MODE" = "--process-readback-dsp" ] ||
+   [ "$MODE" = "--process-snapshot-dsp" ] ||
+   [ "$MODE" = "--process-public-snapshot-dsp" ] ||
+   [ "$MODE" = "--process-private-snapshot-dsp" ] ||
    [ "$MODE" = "--process-impulse-dsp" ] ||
    [ "$MODE" = "--process-stream-dsp" ]; then
 	if [ "$MODE" = "--process-dsp" ] ||
+	   [ "$MODE" = "--process-readback-dsp" ] ||
+	   [ "$MODE" = "--process-snapshot-dsp" ] ||
+	   [ "$MODE" = "--process-public-snapshot-dsp" ] ||
+	   [ "$MODE" = "--process-private-snapshot-dsp" ] ||
 	   [ "$MODE" = "--process-impulse-dsp" ] ||
 	   [ "$MODE" = "--process-stream-dsp" ]; then
-		"$PROBE" "$MODE" "$TARGET_DSP" "$@" \
-			"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+		if [ "$MODE" = "--process-private-snapshot-dsp" ]; then
+			"$PROBE" "$MODE" "$TARGET_DSP" "$PRIVATE_INDEX" "$@" \
+				"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+		else
+			"$PROBE" "$MODE" "$TARGET_DSP" "$@" \
+				"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"
+		fi
 	else
 		"$PROBE" "$MODE" "$@" \
 			"$CAPTURE_ROOT/boundary-0058/command-0051-target.bin"

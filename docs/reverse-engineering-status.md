@@ -14,8 +14,8 @@ payloads has not been recovered.
 | Reproduce the complete shared 4 MiB DMA transport | Resolved as inapplicable on this OCTO. Static capability logic and the BAR snapshot show that the optional audio-extension tables are absent. | Use another supported endpoint to study that optional path. It must not be fabricated on this card. |
 | Identify exact SHARC DSP models and memory maps | All eight packages are optically confirmed as `ADSP-21469 KBCZ-00`; the family map and four live resource pools are documented. | The speed ordering suffix is not visible. Inner runtime stack, interrupt, circular-buffer, and overlay reservations remain hidden by the authenticated object. |
 | Reverse engineer DSP boot and reset control | Ring startup, all-eight DMA enable, ready polling, isolated reset pulses, device hard reset, firmware-aware `+0x1a8` fork, official update, RTC cold cycle, and shutdown are recovered. | DSP ROM boot and the first framework instruction are not decoded. This is no longer a blocker for resident-framework jobs. |
-| Understand firmware and plug-in container formats | FBUT/GBUT/HBUT outer wrappers, all 47 artifacts, full official HBUT transport, `Bill` header, host transform, envelope, allocator, lifecycle, allocation, memory specification, Process buffers, and completions are recovered. | Decode the inner HBUT and `Bill` bodies. |
-| Determine signing, authentication, relocation, and loading rules | Whole-body device authentication is proven dynamically. The outer mapped-resource relocation layer, exact 13-resource load, 33 private allocations, 65-dword memory specification, and first-private-resource Process pointer are proven. | Recover the inner authentication or encryption algorithm and key source, clear segments, DSP-side relocations, entry point, and reservations. |
+| Understand firmware and plug-in container formats | FBUT/GBUT/HBUT outer wrappers, all 47 artifacts, full official HBUT transport, `Bill` header, host transform, envelope, allocator, lifecycle, native `0x0af8` allocation record, memory specification, Process buffers, readback, and completions are recovered. Standard clear SHARC LDR framing is absent from the exact RealVerb wire bodies. | Decode the inner HBUT and `Bill` bodies. |
+| Determine signing, authentication, relocation, and loading rules | Whole-body device authentication is proven dynamically. The outer mapped-resource relocation layer, exact 13-resource load, 33 private allocations, 65-dword memory specification, complete 430-dword private control object, and first-private-resource Process pointer are proven. | Recover the inner authentication or encryption algorithm and key source, clear segments, DSP-side relocations, entry point, and reservations. |
 | Identify the first failing object in RealVerb's sequence | Closed. Every one of the 13 Bill objects succeeds. The earlier host `-38` occurs after resource loading, so there is no failing Bill object in the captured sequence. | The wet-effect activation state remains unobserved; default Process output is a dry roundtrip. |
 | Load a harmless DSP0 program | The exact authenticated official RealVerb allocation completes and performs a bounded 64-sample stereo roundtrip on DSP0. Zero input returns zero; opposed half-scale samples return bit-for-bit. | A user-authored harmless program cannot be built until the inner format and lawful authentication path are known. |
 | Implement host-to-DSP buffers and completion handling | Achieved for the authorized workload. Two 66-dword inputs, two 68-dword outputs, request IDs, channel IDs, Process marker, bounded writes, and completion retrieval are implemented. | Asynchronous queues, cancellation, and custom-program buffer contracts are future work. |
@@ -47,10 +47,18 @@ payloads has not been recovered.
 - Experiment 047 changed one byte in the private bundle. The device rejected
   it, the API returned `EKEYREJECTED`, and an unchanged bundle immediately
   loaded and completed after recovery.
+- Experiments 048 and 049 recovered the exact native allocation record and a
+  valid Process-coupled readback response. The complete 430-dword private
+  Process object contains only 32 host-patched allocation addresses and zeros.
+- Experiment 050 showed that the same operation does not return the first
+  public Bill allocation. The command is consumed while its response and
+  canary remain untouched.
 - The exact RealVerb DLL contains 13 adjacent generation pairs. Their core
   equal-byte fraction averages 0.003178 and pairwise XOR entropy averages
   7.588078 bits per byte. No standard decompression, aligned-block, or tested
   digest hypothesis explains the core.
+- A standard SHARC loader scan over all 26 transmitted RealVerb bodies found
+  zero plausible block headers at 45,398 offsets in either word endianness.
 
 ## What “full” would mean
 
@@ -73,5 +81,6 @@ captured authorized workloads, not yet a general-purpose SHARC toolchain.
 
 Detailed evidence is in
 [`experiment-039-047-process-api-isolation.md`](experiment-039-047-process-api-isolation.md),
+[`experiment-048-050-runtime-readback.md`](experiment-048-050-runtime-readback.md),
 [`driver-api.md`](driver-api.md), and
 [`bill-resource-analysis.md`](bill-resource-analysis.md).
