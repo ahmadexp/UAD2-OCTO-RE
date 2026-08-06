@@ -3,7 +3,7 @@
 [![CI](https://github.com/ahmadexp/uad2-octo-reverse-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmadexp/uad2-octo-reverse-engineering/actions/workflows/ci.yml)
 [![License: GPL-2.0-only](https://img.shields.io/badge/license-GPL--2.0--only-blue.svg)](LICENSE)
 
-![Universal Audio UAD-2 OCTO PCIe card](docs/images/uad2-octo-rev5.jpg)
+![Universal Audio UAD-2 OCTO PCIe card](docs/images/uad2-octo-rev5-highres.jpg)
 
 An experimental, evidence-driven effort to understand the Universal Audio
 UAD-2 PCIe OCTO host protocol and evaluate whether its eight SHARC DSPs can be
@@ -69,7 +69,7 @@ is documented but intentionally unexecuted.
 | Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
 | Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
-| DSP family and data-sheet map | Strong ADSP-21469 evidence | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
+| Major processors and data-sheet maps | Eight ADSP-21469 KBCZ-00 DSPs and one XC6SLX75T FGG676 FPGA optically confirmed | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
 | Exact matching firmware container | Header descriptor consumed, first data descriptor not consumed; potentially persistent | [`docs/experiment-021-runtime-load.md`](docs/experiment-021-runtime-load.md) |
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
@@ -94,6 +94,12 @@ is documented but intentionally unexecuted.
 - Extended capabilities: `0x00300811`
 - Reported DSP count: 8
 - IOMMU group during experiments: 16, containing only the card
+
+The high-resolution board photograph optically confirms the marking
+`ADSP-21469 KBCZ-00` on all eight SHARC packages and `XC6SLX75T` with an
+`FGG676` package code on the central Spartan-6 FPGA. The smaller memory devices
+are Nanya `NT5TU64M16`-family parts; their full ordering suffixes are not
+legible enough to claim.
 
 The board serial is intentionally excluded. The 64 KiB endpoint differs from
 older UAD-2 PCIe reports using device ID `0001` and a 16 KiB BAR. Do not run

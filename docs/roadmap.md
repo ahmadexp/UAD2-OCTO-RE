@@ -22,7 +22,7 @@ buffers, report completion, and recover from failure.
 ## Phase 2: loader and executable format
 
 - [x] Identify the ADSP-21469 family and transcribe its data-sheet memory map.
-- [ ] Confirm the exact package marking on the tested board.
+- [x] Confirm `ADSP-21469 KBCZ-00` on all eight packages optically.
 - [x] Separate FPGA-image, DSP-framework, and plug-in container paths.
 - [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
 - [x] Inventory all 47 installer firmware containers, their build words,
@@ -57,7 +57,6 @@ submission is paused pending proof of the persistence boundary.
 | Harmless DSP0 program | No proven OCTO executable format or entry ABI exists | Valid framework response plus a decoded, target-specific minimal program format |
 | General-purpose job API | Program handles, completion IDs, and buffer ownership would currently be guesses | One real program load, bounded buffer exchange, and completion response |
 | Eight-DSP program isolation | Reset isolation is proven only with empty transports | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
-| Exact DSP package | Board photograph does not resolve the package marking | A sharp, perpendicular macro photograph of one DSP marking |
 
 The transport module remains fail-closed for program, buffer, submit, and wait
 operations until these evidence gates are met.

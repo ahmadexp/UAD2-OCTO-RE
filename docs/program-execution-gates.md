@@ -11,7 +11,7 @@ exact OCTO target:
 
 | Required field | Current state |
 |---|---|
-| executable machine family and package | ADSP-21469 family is strong; package suffix unconfirmed |
+| executable machine family and package | `ADSP-21469 KBCZ-00` optically confirmed on all eight DSPs; speed ordering suffix not visible |
 | code and data address units | data-sheet map known; loader interpretation unknown |
 | segment records and alignment | unknown |
 | relocation records and arithmetic | unknown |

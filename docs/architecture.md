@@ -59,7 +59,8 @@ cases.
 
 ## Main unknowns
 
-- Optical confirmation of the ADSP-21469-family part number and boot straps.
+- Optical and electrical determination of boot straps and the exact core clock;
+  the `ADSP-21469 KBCZ-00` device marking itself is now confirmed.
 - Whether the FPGA or resident firmware authenticates program containers.
 - Whether a vendor firmware image is mandatory before DSP ring commands work.
 - The runtime framework image and loader command framing.

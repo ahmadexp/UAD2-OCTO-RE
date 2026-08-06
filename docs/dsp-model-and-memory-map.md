@@ -2,25 +2,32 @@
 
 ## Identification
 
-The strongest current identification is the Analog Devices ADSP-21469 family.
-The symbolized Universal Audio macOS driver contains the method name
-`CPcieDSP::_waitFor469ToStart`, and the OCTO product generation is consistent
-with that processor family. This is strong static evidence, but it is not yet
-an optical part-number reading from this exact board. The package markings in
-the available photograph are not legible enough to make that final distinction.
+The high-resolution photograph optically confirms `ADSP-21469` and `KBCZ-00`
+on all eight SHARC packages on the tested Rev. 5 board. This resolves the
+processor model and package variant independently of the software evidence.
+The symbolized Universal Audio macOS driver also contains the method name
+`CPcieDSP::_waitFor469ToStart`, providing a separate consistency check.
 
 Universal Audio's [official UAD-2 PCIe product page](https://www.uaudio.com/products/uad2-pcie)
 confirms that the OCTO configuration contains eight SHARC processors. The
-provided repository photograph is 800 by 640 pixels and resolves all eight
-large DSP packages, but not their laser markings. It therefore proves count
-and board placement, not the exact ordering code, temperature grade, or package
-suffix. A perpendicular macro image of one package is still required.
+repository's 4032 by 3024 photograph resolves all eight package markings. The
+visible `KBCZ-00` text establishes the KBCZ package variant and device suffix,
+but the image does not show a `-3` or `-4` speed ordering suffix. The board's
+exact processor clock therefore remains a runtime or clock-measurement
+question rather than an optical claim.
 
 The [Analog Devices product page](https://www.analog.com/en/products/adsp-21469.html)
-describes a 450 MHz 32/40-bit floating-point SHARC processor with 5 Mbits of
+describes an up-to-450 MHz 32/40-bit floating-point SHARC processor with 5 Mbits of
 on-chip RAM, DDR2 support, two link ports, 48-bit instructions, and 16/32-bit
 VISA instructions. The address ranges below are transcribed from the
 [ADSP-21467/ADSP-21469 data sheet](https://www.analog.com/media/en/technical-documentation/data-sheets/ADSP-21467_21469.pdf).
+
+The same photograph optically confirms the central programmable logic as a
+Xilinx Spartan-6 `XC6SLX75T` in the `FGG676` package. AMD's
+[Spartan-6 packaging guide](https://docs.amd.com/v/u/en-US/ug385) lists that
+device/package combination. Eight adjacent packages carry Nanya
+`NT5TU64M16`-family markings, consistent with one 16-bit DDR2 device per SHARC;
+their complete suffixes are not read confidently and are not asserted here.
 
 ## Internal memory
 
