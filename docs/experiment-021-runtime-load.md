@@ -1,5 +1,12 @@
 # Experiment 021: exact OCTO HBUT chain
 
+> [!NOTE]
+> Experiment 023 later completed the full chain through the unmodified official
+> Windows updater. Experiment 021 remains the bounded Linux result, but its
+> first-payload stop is no longer the final evidence about the official
+> framing. See
+> [`experiment-023-official-windows-reference.md`](experiment-023-official-windows-reference.md).
+
 ## Outcome
 
 The first complete submission of the exact, compatibility-matched OCTO HBUT

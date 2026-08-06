@@ -1,8 +1,8 @@
 # Runtime response state
 
-The transport can dequeue commands, but the tested card has not written one
-valid command response. This note separates a working DMA path from a missing
-device runtime.
+The tested card now writes valid command responses through the official
+runtime. This note separates those partial runtime services from a complete
+program load.
 
 ## Observed state progression
 
@@ -11,8 +11,13 @@ device runtime.
 | Cold endpoint | eight stable ready-poll values and cold-zero ring windows | not observed |
 | Host transport started | all 16 rings published, eight DMA engines enabled, interrupt mapping reproduced | not observed |
 | Resident commands dequeued | connect, query 026, and query 027 advance command read indices | no response write |
-| HBUT transition attempted | exact extended header consumed, first payload descriptor not consumed | no response write |
-| Runtime framework active | required by official system and plug-in services | not reached |
+| Bounded HBUT attempt | exact extended header consumed, first payload descriptor not consumed | no response write |
+| Official HBUT update | extended header, all 625 payload descriptors, and response descriptor consumed | completion page stayed zero |
+| Official signed runtime | all 16 rings published; two DSP0 command pairs and response descriptors consumed | exact-boundary response targets stayed zero |
+| Post-update cold query | connect and query 026 consumed after RTC cold boot | response descriptor and canary untouched |
+| Official plug-in host active | four repeatable `0x80030302` responses | stable 768-entry four-state table plus request token |
+| Official resource loader | form-zero resources `0x120` and `0xd0` submitted at observed pool offsets | exact `0x80070004` intermediate success for both |
+| RealVerb-Pro instantiated | VST3 user interface opened through the official host | disabled with `-38` after an all-zero response |
 | Program active | requires framework, allocation, load, and completion ABI | not reached |
 
 Command-ring consumption proves that the FPGA DMA front end recognizes the
@@ -42,23 +47,40 @@ driver, FPGA, DSP framework, DSP bootloader, serial, and auxiliary FPGA fields.
 The recovered layout and exact field sources are documented in
 [`system-information-record.md`](system-information-record.md).
 
-## Why the full HBUT experiment did not resolve it
+## What the official HBUT trace resolved
 
-The exact PCIe driver confirms Experiment 021's extended header and
-page-bounded descriptor chain. The experiment used a page-aligned IOVA, so an
-official first payload descriptor would be 4 KiB. The observed stop at that
-descriptor is therefore not explained by an incorrectly combined single DMA
-object or a missing response descriptor.
+Experiment 023 traced the exact official updater through the same PCIe driver
+and physical card. The command hardware read index advanced from 4 to 630,
+covering the extended header, 624 full-page descriptors, and the 2,192-byte
+tail descriptor. The response hardware read index advanced from 2 to 3. The
+large-block descriptor shape is therefore live-validated, not merely recovered
+statically.
 
-Plausible remaining categories are deliberately unordered:
+The response completion page remained zero. During the post-update signed
+runtime, QEMU was paused at the exact response-read-index boundary and the
+second target page remained all zero at the boundary, 5 ms later, and 100 ms
+later. Response index advancement must therefore be described as descriptor
+consumption, not a successful reply. Experiment 024 further showed that the
+persistent update alone does not expose query 026 after a cold boot.
 
-- a required device or DSP boot state before command `0x00120000`;
-- a card-generated DMA fault not visible in the captured host registers;
-- an accepted physical-address constraint beyond the recovered descriptor
-  rules;
-- persistent-update arbitration or reset sequencing;
-- a firmware-aware hard-reset transition after the load flag is set;
-- an inner-container validation path that stalls before reporting failure.
+Experiment 025 then activated the missing official plug-in path. Four response
+targets contained header `0x80030302`, a command-correlated token, and the same
+768-dword body. The body uses only `0x80000000`, `0x81000000`, `0x82000000`,
+and `0x83000000`; their license or capability meanings are not assigned.
+
+The same run produced exact `0x80070004` intermediate successes for official
+form-zero `Bill` resources `0x120` and `0xd0`. Their response IDs and command
+words match their submitted envelopes. RealVerb-Pro later displayed the
+official device-not-responding error `-38`, which the recovered resource parser
+assigns to an all-zero four-dword response.
+
+The remaining categories are now narrower:
+
+- the first resource or status object in the multi-resource chain whose target
+  remains zero;
+- DSP-side validation, authorization, allocation, or relocation after the two
+  accepted `Bill` objects;
+- the segment, entry, and buffer ABI inside an accepted opaque core.
 
 The adjacent commands `0x000d0000` and `0x000e0000` are not evidence that they
 must bracket the initial update. The exact `UAD2System.sys` common dispatcher
@@ -71,13 +93,12 @@ is therefore not a hidden automatic pre-operation or post-operation in either
 recovered host caller. Submitting the neighboring commands speculatively would
 add risk without a discriminating prediction.
 
-The driver lifecycle does contain a different post-load branch. `LoadFirmware`
-sets a host flag, and a later hard reset writes `0x0be0deaf` to DSP0 `+0x1a8`
-instead of performing the ordinary BAR `+0x221c` reset pulse. This path is
-confirmed independently in the exact Windows and symbolized macOS drivers. It
-does not explain why Experiment 021 stopped at its first payload descriptor,
-because no successful load response occurred. Issuing the magic after a
-timeout would be non-discriminating and potentially persistent.
+The driver lifecycle contains a post-load branch in which `LoadFirmware` sets a
+host flag and a later hard reset can write `0x0be0deaf` to DSP0 `+0x1a8`
+instead of pulsing BAR `+0x221c`. The official update trace did not contain that
+magic write, and the post-update orderly shutdown used the ordinary hard-reset
+pulse. It should not be synthesized independently because its device-side
+meaning remains unknown.
 
 Framework properties 6, 7, and 8 are also eliminated as response candidates.
 The symbolized PCIe driver implements them with local BAR and cached-object
@@ -86,16 +107,16 @@ Experiment 020. See [`framework-property-map.md`](framework-property-map.md).
 
 ## Next evidence, in order
 
-1. Capture a lawful official update on disposable, recoverable hardware below
-   the recovered host call boundary, including descriptor progress, device
-   resets, the `+0x1a8` or `+0x221c` branch, return values, and timing. Do not
-   capture or publish secrets.
-2. Identify the first device-side consumer of the HBUT prefix or compatibility
-   ID through static analysis.
-3. Identify the DSP-side consumer of a form-zero `Bill` resource and decode
-   one target-compatible inner core.
-4. Only after volatility and recovery are demonstrated, define a new bounded
-   hardware experiment with one changed variable and a unique expected result.
+1. Repeat the lawful RealVerb-Pro sequence with a boundary capture for every
+   four-dword response until the first all-zero target is uniquely associated
+   with its command object. Do not publish proprietary plug-in bytes or
+   secrets.
+2. Determine whether that object is a `Bill`, operation-13 status request, or
+   another loader phase, then explain why it returns no content.
+3. Identify the DSP-side consumer of one accepted form-zero `Bill` resource and
+   decode one target-compatible inner core.
+4. Only then define a bounded DSP0 heartbeat with a unique response, output,
+   timeout, and recovery oracle.
 
 Repeating queries, changing descriptor size without evidence, or sending the
 neighbor wrappers does not satisfy this standard.

@@ -1,0 +1,26 @@
+{
+  "experiment": "024-post-update-connect-query-026",
+  "command": "0x00260001",
+  "expected_response_header": "0x800c0005",
+  "callback_shadow": "0xcccccccc",
+  "query_shadow": "0xcccccccf",
+  "connect_sequence_requested": true,
+  "connect_commands_consumed": true,
+  "connect_polls_ms": 1,
+  "polls_ms": 2000,
+  "command_consumed": true,
+  "response_consumed": false,
+  "response_words": [
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5",
+    "0xa5a5a5a5"
+  ],
+  "reply_header_matches": false,
+  "writes_confined_to_response_prefix": true,
+  "all_dsps_ready": true,
+  "explicit_restore_succeeded": true,
+  "vfio_reset_recovered": true,
+  "success": false
+}

@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "experiment": "025-official-runtime-response",
+  "date": "2026-08-05",
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "dsp_count": 8,
+    "dsp_model": "ADSP-21469 KBCZ-00",
+    "official_windows_driver": "12.18.30.228",
+    "uad_version": "11.0.1.40206"
+  },
+  "official_media": {
+    "uad_windows_zip_sha256": "34e908c7460c0ef9df0f701d21c84525a702a959da09283911f82ee0d8c773f7",
+    "plugins_64bit_msi_sha256": "4f3395ba7221e930ce10e8a8fa9632a2aa97794f110ba3fbad76be9e9c885adc",
+    "vst3_64bit_msi_sha256": "3fe5678548bbc706d32e0a49af5cbc8e7369bbf010f348e04a8c9a074dc3b358",
+    "reaper_7_78_installer_sha256": "e7ad77bdd572c35d205034f871181c7b4d9a4110798131b60acd54cd44453947"
+  },
+  "authorization_response": {
+    "header": "0x80030302",
+    "declared_dwords": 770,
+    "declared_bytes": 3080,
+    "body_dwords": 768,
+    "body_sha256": "db187e4d9603cc24077f0e67bcfd50d8b528744f3622eaa71b1f693197eaf30b",
+    "body_value_counts": {
+      "0x80000000": 203,
+      "0x81000000": 2,
+      "0x82000000": 24,
+      "0x83000000": 539
+    },
+    "trailing_bytes": 1016,
+    "trailing_all_zero": true,
+    "repeat_count": 4,
+    "request_tokens": [
+      "0xbc521520",
+      "0xbc521de0",
+      "0xbc521200",
+      "0xbc521020"
+    ],
+    "target_page_sha256": [
+      "75e0f451a570ea32fb60d06c75d3d32137334ba98a58f2e2253450672a1f76d0",
+      "90fe92d1cac4276764f858dcca523139dfda9da66c326112bd44da4b09f18262",
+      "3bc50fbfb1dad05b3eeadb4c0f338dd5c971677943bcf44d5870657e37fdd253",
+      "ba2caaff641399e1005495d4ff961a4e7aa5dfb284efe8bad573800c8c685f07"
+    ],
+    "token_matches_preceding_command": true
+  },
+  "bill_intermediate_successes": [
+    {
+      "resource_id": "0x00000120",
+      "resource_sha256": "c48bc376b342bed310d77838985bf22e8cb13a3147bf2faed8943547677ba7d9",
+      "resource_bytes": 604,
+      "payload_form": 0,
+      "command_word": "0x00010099",
+      "allocation_offset_dwords": "0x000e023a",
+      "command_dwords": 153,
+      "response_words": [
+        "0x80070004",
+        "0x00000000",
+        "0x00000120",
+        "0x00010099"
+      ],
+      "response_page_sha256": "631f271566f3914414bfa84f96b3154859ed379ebcb871aa4c2447027c336c0c"
+    },
+    {
+      "resource_id": "0x000000d0",
+      "resource_sha256": "2102d70758352104b6c0e601ddd8cbeed87d153ffc766de58fdaf64c946debaf",
+      "resource_bytes": 424,
+      "payload_form": 0,
+      "command_word": "0x0001006c",
+      "allocation_offset_dwords": "0x000e02fa",
+      "command_dwords": 108,
+      "response_words": [
+        "0x80070004",
+        "0x00000000",
+        "0x000000d0",
+        "0x0001006c"
+      ],
+      "response_page_sha256": "f03e84ad72ed730cbec0acf484823be4386c6c757d8b9bb56c21bf6b431af8da"
+    }
+  ],
+  "plugin_host_result": {
+    "host": "REAPER 7.78",
+    "plugin": "UAD RealVerb-Pro VST3",
+    "plugin_ui_instantiated": true,
+    "demo_started": false,
+    "program_execution_confirmed": false,
+    "official_error_code": -38,
+    "official_error_text": "A UAD device is not responding",
+    "plugin_disabled": true,
+    "failure_matches_all_zero_resource_response_path": true
+  },
+  "trace_summary": {
+    "trace_sha256": "39953bd461cf0eb417959e5840d06c5a234a5c987a35baaee697c10a4406689f",
+    "trace_lines": 167467,
+    "vfio_region_reads": 165728,
+    "vfio_region_writes": 938,
+    "all_command_rings_published": true,
+    "all_response_rings_published": true,
+    "all_eight_dma_enable_seen": true,
+    "command_ring_page0_sha256": "922fda7fb8f091d2cb0f9dd25ab47cbbf43112585354a675d22208de1b73b602",
+    "response_ring_page0_sha256": "dd8e3ffa08858e814fa0b1548fecd2bb07554b8e15b5f51c352aa4a9467d3cba"
+  },
+  "recovery": {
+    "guest_shutdown": "ACPI",
+    "qemu_stopped": true,
+    "pci_driver_bound_after_shutdown": false,
+    "pci_command_after_shutdown": "0x0002",
+    "bus_master_enabled_after_shutdown": false
+  },
+  "publication_boundary": {
+    "vendor_binaries_committed": false,
+    "guest_memory_committed": false,
+    "plugin_payload_bytes_committed": false,
+    "published_material": "hashes, protocol words, counts, and derived metadata only"
+  }
+}

@@ -125,9 +125,9 @@ decode the HBUT payload.
 
 | Payload | Host transformation | Host authentication | DSP-side status |
 |---|---|---|---|
-| `Bill`, payload form 0 | Complete byte-for-byte copy | No cryptographic check in the outer parser | Opaque and untested on OCTO |
+| `Bill`, payload form 0 | Complete byte-for-byte copy | No cryptographic check in the outer parser | Two official resources accepted on OCTO; inner cores remain opaque |
 | `Bill`, payload form nonzero | Replace declared trailing dwords with an ID-seeded deterministic stream | No cryptographic check in the outer parser | Opaque and untested on OCTO |
-| `HBUT` firmware-update object | Fixed 64-byte wrapper parsed; inner payload unresolved | Unknown | Exact operation may be persistent; one complete chain stopped before the first data descriptor completed |
+| `HBUT` firmware-update object | Fixed 64-byte wrapper parsed; inner payload unresolved | Unknown | Exact official 625-descriptor payload chain consumed; completion page remained zero and updater requested restart |
 | Runtime loader block | Page-chained DMA framing recovered | Accepted-image validation unknown | Incomplete probes consumed without a reply |
 
 This matrix distinguishes lack of a host-side check from proof that no
@@ -179,9 +179,26 @@ compares opaque payload structure without attempting to decode or export it.
 
 Experiment 021 submitted the exact hash-identified HBUT through the recovered
 large-block framing. The device consumed the extended command header but did
-not complete the first data descriptor or write a response. Cleanup and reset
-fully recovered the card. Further hardware submission is paused until the
-persistent update state machine can be excluded.
+not complete its first data descriptor. Experiment 023 then used the unmodified
+official Windows updater and signed driver. In that reference path the device
+consumed the extended header, all 625 payload descriptors, and the posted
+response descriptor. The completion page was still zero at capture, the updater
+requested a restart, and a subsequent RTC-backed cold power cycle recovered the
+card. The updater did not offer the OCTO update on the next official boot.
+
+This validates the large-block transport and removes Experiment 021's framing
+failure as the primary unknown. It does not decode the inner image, prove the
+authentication rule, or establish whether the final version state lives in
+flash, another nonvolatile store, or host-maintained state. Details and artifact
+hashes are in
+[`experiment-023-official-windows-reference.md`](experiment-023-official-windows-reference.md).
 
 The response-state evidence and required next observations are separated in
 [`runtime-response-state.md`](runtime-response-state.md).
+
+Experiment 025 dynamically validated the separate ordinary-resource path. The
+official runtime sent form-zero resources `0x120` and `0xd0` byte for byte at
+pool offsets `0xe023a` and `0xe02fa`. The OCTO returned the exact
+`0x80070004` intermediate-success form for both. A complete RealVerb-Pro load
+still ended in the official `-38` all-zero-response path, so the accepted
+outer resources do not decode or validate the complete executable core.

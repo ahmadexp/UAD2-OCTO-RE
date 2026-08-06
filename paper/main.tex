@@ -208,12 +208,31 @@ Capability & Status & Interpretation \\
 Exact PCI endpoint and isolated IOMMU group & Confirmed & The tested card can be identified and its DMA can be contained. \\
 All-eight ring and DMA transport startup & Confirmed & All 16 rings and 64 pages can be published and recovered. \\
 Per-DSP reset on an empty transport & Confirmed & Each engine can be pulsed and returned to its baseline without changing the other seven. \\
-Valid runtime response & Not observed & Official commands dequeue, but no response has been received. \\
+Valid runtime response & Confirmed, partial & The official plug-in path returns a stable 768-entry table and exact intermediate successes for two form-zero resources. \\
 General-purpose program and bounded output & Not achieved & No UAD workload can yet be compared for correctness or speed. \\
 GPU baseline and comparison dataset & Absent & No GPU model, CUDA stack, timing distribution, power trace, or result file exists. \\
 \bottomrule
 \end{tabularx}
 \end{table*}
+
+An isolated Windows reference run used the exact UAD 11.0.1 media, Secure
+Boot, TPM, and the signed OCTO driver. The official updater's extended header,
+624 full-page payload descriptors, 2,192-byte tail descriptor, and response
+descriptor were all consumed. After RTC-backed cold recovery, the driver again
+published all 16 rings and enabled all eight DSP engines. Pausing at the exact
+response-read-index boundaries showed zero-filled target pages, so descriptor
+consumption is not counted as a valid runtime response or program result
+\cite{uad-project}.
+
+A subsequent official plug-in-host experiment crossed that boundary. Four
+responses used header \texttt{0x80030302}, carried request-correlated tokens,
+and shared one 768-dword body containing four state values. The same run
+returned the statically predicted \texttt{0x80070004} intermediate-success form
+for form-zero resources \texttt{0x120} and \texttt{0xd0}, including exact
+resource IDs and envelope command words. RealVerb-Pro instantiated but the
+official host disabled it with error \texttt{-38}, the recovered all-zero
+resource-response result. These observations validate partial DSP-side resource
+acceptance, not a complete or correct program \cite{uad-project}.
 
 The processor identification is now direct at the component level. All eight
 packages visibly carry \texttt{ADSP-21469} and \texttt{KBCZ-00}; the central
@@ -524,10 +543,13 @@ deadline misses. The most plausible GPU region contains large, parallel,
 compute-dense workloads. This manuscript defines how to locate that boundary
 without converting an architectural intuition into an unsupported result.
 
-The paper is ready to accumulate measurements only after the UAD runtime
-returns a valid response, a harmless program produces bounded output, and the
-result survives reset and IOMMU cleanup. Until then, the defensible finding is
-the recovered transport and isolation foundation, not performance superiority.
+The paper is ready to accumulate comparative measurements only after a harmless
+program produces bounded output and the result survives reset and IOMMU
+cleanup. Valid runtime and resource-success responses have now been observed,
+but the complete official plug-in load still terminates in the all-zero
+response path. Until that later boundary is resolved, the defensible finding is
+the recovered transport, partial loader validation, and isolation foundation,
+not performance superiority.
 
 {\footnotesize
 \bibliographystyle{plain}

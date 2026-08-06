@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "experiment": "023-official-windows-reference",
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "bar0_size": 65536,
+    "dsp_count": 8,
+    "iommu_group": 16,
+    "secure_boot": true
+  },
+  "official_media": {
+    "uad_version": "11.0.1.40206",
+    "drivers_msi_sha256": "04b4892614610bf09dff42cfa6911f6c8c7197fb433290a881989105fb02f3ec",
+    "system_32bit_msi_sha256": "e987eaf4ca23697e53a6eef8150786495f45f340e11730a70d37087136e65927",
+    "system_64bit_msi_sha256": "1564be6046bfe770e6f76daa06767f00ff073704d06afc842d92acdbb4fdb2c5",
+    "windows_11_enterprise_evaluation_iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9"
+  },
+  "installed_device": {
+    "name": "Universal Audio UAD-2 OCTO",
+    "status": "OK",
+    "config_manager_error_code": 0,
+    "driver_version": "12.18.30.228",
+    "driver_date": "2023-11-30",
+    "inf": "oem3.inf",
+    "signed": true,
+    "signer": "Microsoft Windows Hardware Compatibility Publisher",
+    "signer_score": "WHQL",
+    "signer_status": "Attested",
+    "submission_id": "31763660_14634909807108249_1152921505697139565"
+  },
+  "firmware_update": {
+    "exact_octo_hbut_sha256": "f503787c0f253fc9713a47ae7e15adff242a6dde647dae7cb8ab6550ed976447",
+    "command_start_index": 4,
+    "command_end_index": 630,
+    "header_descriptor": [
+      "0x80000002",
+      "0x00000000",
+      "0x684d6000",
+      "0x00000002"
+    ],
+    "payload_descriptor_count": 625,
+    "full_4096_byte_payload_descriptors": 624,
+    "final_payload_descriptor_bytes": 2192,
+    "response_start_index": 2,
+    "response_end_index": 3,
+    "response_descriptor": [
+      "0x80000004",
+      "0x00000000",
+      "0x684d6008",
+      "0x00000002"
+    ],
+    "command_hardware_read_index": 630,
+    "response_hardware_read_index": 3,
+    "completion_page_all_zero": true,
+    "completion_page_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+    "restart_requested_by_official_updater": true,
+    "update_prompt_absent_after_rtc_cold_boot": true
+  },
+  "post_update_runtime": {
+    "all_command_rings_published": true,
+    "all_response_rings_published": true,
+    "all_eight_dma_enable_seen": true,
+    "dsp0_command_hardware_read_indexes": [0, 2, 4],
+    "dsp0_response_hardware_read_indexes": [0, 1, 2],
+    "first_command_pair": [
+      ["0x00100002", "0x01bf520f"],
+      ["0x00110002", "0xa5521ac0"]
+    ],
+    "second_command_pair": [
+      ["0x00100002", "0x01bf5214"],
+      ["0x00110002", "0xa5521e80"]
+    ],
+    "response_descriptor_shape": "0x80000302",
+    "second_response_target_sha256_at_consumption_boundary": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+    "card_written_response_observed": false
+  },
+  "artifact_hashes": {
+    "firmware_update_qemu_vfio_trace": "9d70b472e60cf6cd8b7bb9f512c48dd8cbb1283778bd2bb62be601ac5474b514",
+    "rings_during_update": "586e5b5469825d444306b5b167a8d7fc0b63558e544d4c1381dd303d257be94a",
+    "rings_pre_reboot": "73ad9cefa36d8cd25bbdb348d7a8593104dbb65d19dc1179f95b9dd5dab589ca",
+    "post_update_qemu_vfio_trace": "6c5a858fbe4abf498edc8dc69529aef1f66ae0744b9dadcb3d81379a2bcdc219",
+    "command_rings_at_response_boundary": "77faa940e6facdd81ccdd2741a6ae3baca6ac7aef4054e15ec6d9c81729c1971",
+    "response_rings_at_response_boundary": "bb0130f8ca2b882d483714f6bcb1357334a9ff17e7016c7e1b9c3bec6a2cf0db",
+    "valid_response_target_at_boundary": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+    "decrypted_capture_export_disk": "09ba010c862ab7b48b9e77525181d36ef7b7eb3a2fa90acd007a7fbc9ad0c43c"
+  },
+  "published_content_policy": "Metadata, hashes, protocol words, and derived facts only. No proprietary firmware, driver, installer, or plug-in bytes are included."
+}

@@ -127,8 +127,20 @@ The final low status-code mapping is exact:
 
 An all-zero four-dword response maps to `-38`; any other malformed response
 maps to `-50`. A separate earlier response branch recognizes status class
-`0xf0010000` in word one. Its low-code meanings are not yet named. No valid
-resource response of either success form has been received from the OCTO.
+`0xf0010000` in word one. Its low-code meanings are not yet named.
+
+Experiment 025 received the intermediate success form twice from this OCTO:
+
+| Resource | Allocation offset | Command word | Response words |
+|---:|---:|---:|---|
+| `0x00000120` | `0x000e023a` | `0x00010099` | `80070004 00000000 00000120 00010099` |
+| `0x000000d0` | `0x000e02fa` | `0x0001006c` | `80070004 00000000 000000d0 0001006c` |
+
+The resource ID and envelope command word are echoed exactly. Both resources
+use payload form zero, so these captures dynamically confirm the byte-for-byte
+copy and the loader's intermediate-success parser. The enclosing RealVerb-Pro
+load later failed with host result `-38`, so they do not prove complete program
+execution.
 
 The offline tool can construct the exact envelope when a known allocation
 offset and pool direction are supplied:
@@ -155,9 +167,9 @@ DSP-side consumer.
 Prior captures for related Apollo hardware include resource IDs
 `0x020000a5`, `0x020000c2`, `0x020000db`, `0x020000eb`, and `0x0200012b`.
 They demonstrate the format but do not establish that those programs or their
-memory reservations are compatible with this OCTO revision. Loading them on
-the OCTO is not justified until a valid framework response and target-specific
-resource inventory are available.
+memory reservations are compatible with this OCTO revision. Experiment 025
+instead used resources selected and submitted by the unmodified official OCTO
+runtime. Replaying the related Apollo captures is still not justified.
 
 The official 11.0.1 installer also contains valid embedded `Bill` resources in
 OCTO-capable 64-bit plug-in modules. `tools/scan_bill_resources.py` inventories
@@ -223,7 +235,7 @@ entry point. Those rules remain on the DSP-side consumer path.
 
 ## Proven and unresolved
 
-Confirmed statically:
+Confirmed statically and, where noted, dynamically:
 
 - Exact 20-byte outer header and field bounds.
 - Exact payload-form branch and deterministic tail replacement algorithm.
@@ -233,13 +245,15 @@ Confirmed statically:
   final status mapping, and malformed-response errors.
 - Absence of host-side cryptographic verification in this parser.
 - Resource transport response header and status class.
+- Two official form-zero envelopes, allocation offsets, and intermediate
+  successes on the physical OCTO.
 
 Still unresolved:
 
 - The preserved inner-core encoding.
 - Segment and relocation records inside that core, if any.
 - DSP-side validation or authentication.
-- OCTO-specific resource IDs, entry points, and memory reservations.
+- Entry points and inner memory reservations for a complete OCTO program.
 
 The loader findings are independently checked by the hash-locked verifier:
 

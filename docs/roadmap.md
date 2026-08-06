@@ -17,7 +17,7 @@ buffers, report completion, and recover from failure.
 - [x] Resolve the shared 4 MiB tables as an optional audio transport that the
       OCTO capability branch does not instantiate.
 - [x] Recover the eight-DSP compressed interrupt-vector mapping.
-- [ ] Receive one benign response from resident firmware.
+- [x] Receive benign card-written responses through the official runtime.
 
 ## Phase 2: loader and executable format
 
@@ -37,25 +37,34 @@ buffers, report completion, and recover from failure.
       response forms, and the exact final status mapping.
 - [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
       DSPs with a read-only VFIO snapshot.
+- [x] Observe two official form-zero resource allocations and exact
+      intermediate-success responses on DSP0.
 - [ ] Decode opaque payloads into segments and relocations, if those concepts
       are present in the DSP-side format.
 
 The exact `HBUT` artifact matches the target's FPGA revision. The symbolized
 driver maps operation `0x69` to `LoadFirmware`, while `LoadFPGAImage` is the
 separate operation `0x6a`. The updater nevertheless requires a restart after a
-PCIe firmware update, so this distinction does not prove volatility. Experiment
-021 consumed only the extended header and recovered safely; further full-image
-submission is paused pending proof of the persistence boundary.
+PCIe firmware update. Experiment 023 used the exact official path: all 625
+payload descriptors and the response descriptor were consumed, the updater
+requested restart, and RTC cold recovery succeeded. The completion page and
+the later exact-boundary runtime response targets remained zero. Experiment
+024 showed that the update alone does not enable query 026 after a cold boot.
+Experiment 025 then activated the official plug-in path. It produced four
+repeatable nonzero authorization-table candidates and exact `Bill` successes
+for resources `0x120` and `0xd0`. RealVerb-Pro instantiated but was disabled on
+the recovered `-38` all-zero-response path, so a complete program is still not
+available.
 
 ## Current blockers
 
 | Goal | Blocking evidence | Required evidence before implementation |
 |---|---|---|
-| Valid DSP response | Resident connect and query commands dequeue but never write the response ring | Identify and safely enter the runtime state that implements query services |
-| Payload authentication and transform | HBUT and official `Bill` bodies remain opaque. Digest, checksum, compression, block-repetition, and generation-pair tests reject simple clear layouts, and no host-side verifier was found for form-zero objects | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
-| Relocations and runtime reservations | Pool bounds are known, but no decoded segment, entry-point, or relocation record is visible | Decode one target-compatible program resource and correlate its allocations |
-| Harmless DSP0 program | No proven OCTO executable format or entry ABI exists | Valid framework response plus a decoded, target-specific minimal program format |
-| General-purpose job API | Program handles, completion IDs, and buffer ownership would currently be guesses | One real program load, bounded buffer exchange, and completion response |
+| Valid response semantics | Valid table and `Bill` responses are captured, but four table states are unnamed and the complete load later reaches an all-zero response | Isolate the first failing resource response and correlate it with the host object |
+| Payload authentication and transform | Form-zero byte-for-byte transfer is dynamically accepted twice, but HBUT and `Bill` inner bodies remain opaque. No host-side verifier was found | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
+| Relocations and runtime reservations | Pool bounds and live offsets `0xe023a` and `0xe02fa` are known, but no decoded segment, entry-point, or relocation record is visible | Decode one accepted target-compatible resource and correlate its inner accesses |
+| Harmless DSP0 program | An official multi-resource attempt instantiated RealVerb but ended in `-38`; no proven entry ABI or output exists | Resolve the failing response, then derive a target-specific minimal program format |
+| General-purpose job API | Resource completions are real, but program handles and buffer ownership would still be guesses | One complete program load, bounded buffer exchange, and completion response |
 | Eight-DSP program isolation | Reset isolation is proven only with empty transports | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
 
 The transport module remains fail-closed for program, buffer, submit, and wait
@@ -74,11 +83,12 @@ Resource-manager properties 6, 7, and 8 are likewise host-side BAR or cached
 state reads. Their recovery explains the eleven-word pool capture but does not
 provide a runtime command or response service.
 
-A distinct kernel-lifecycle transition is now known. Ordinary hard reset
+A distinct kernel-lifecycle transition is known. Ordinary hard reset
 pulses BAR `+0x221c`; after the firmware-load flag is set, hard reset writes
 `0x0be0deaf` to DSP0 `+0x1a8` instead. This cross-platform result narrows the
-boot state machine, but its potentially persistent device-side semantics must
-be traced after a successful official load before any reproduction.
+boot state machine. The official update trace did not emit the magic and the
+post-update shutdown emitted the ordinary reset pulse, so the magic remains an
+unexecuted branch rather than a missing required step.
 
 Detailed response-state evidence is in
 [`runtime-response-state.md`](runtime-response-state.md). The first-program,

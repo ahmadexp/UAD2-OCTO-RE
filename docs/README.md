@@ -63,6 +63,9 @@ card recovered. It does not imply that later or broader operations are safe.
 | 019 | [`experiment-019-kernel-transport.md`](experiment-019-kernel-transport.md) | [`experiment-019-result.json`](experiment-019-result.json) | Signed kernel transport passed start, all-eight reset, stop, unload, and recovery |
 | 020 | [`experiment-020-resource-pools.md`](experiment-020-resource-pools.md) | [`experiment-020-result.json`](experiment-020-result.json) | All four resource pools recovered identically across eight DSPs, zero writes |
 | 021 | [`experiment-021-runtime-load.md`](experiment-021-runtime-load.md) | [`experiment-021-result.json`](experiment-021-result.json) | Exact compatible HBUT chain timed out safely; no response write and full recovery |
+| 023 | [`experiment-023-official-windows-reference.md`](experiment-023-official-windows-reference.md) | [`sanitized result`](data/experiment-023-official-windows-reference/result.json) | Official full HBUT chain consumed, RTC cold recovery passed, all 16 rings published, response targets stayed zero |
+| 024 | [`experiment-024-post-update-query.md`](experiment-024-post-update-query.md) | [`experiment-024-result.json`](experiment-024-result.json) | Post-update connect and query consumed, no response, exact recovery |
+| 025 | [`experiment-025-official-runtime-response.md`](experiment-025-official-runtime-response.md) | [`sanitized result`](data/experiment-025-official-runtime-response/result.json) | First nonzero OCTO responses and two `Bill` successes; RealVerb later disabled on `-38` |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

@@ -22,21 +22,22 @@ Rev 5 card. All 16 four-page rings can be published through 64 IOMMU-contained
 pages, every DSP engine can be enabled, official connect and query commands are
 dequeued, and explicit cleanup plus VFIO reset recovers the cold state.
 
-General-purpose DSP execution is **not yet achieved**. The queries receive no
-reply because the card appears to be in a boot/framework state without the
-runtime service expected by those commands. The exact matching official OCTO
-firmware-update container has been identified. One bounded submission consumed
-the extended command header but stopped before consuming its first data
-descriptor, with no response or persistent-state evidence. The updater requires
-a restart after PCIe firmware updates, so further submission is paused. The
-ordinary `Bill` resource envelope, host transform, all four allocator pools,
-87 official resource instances, and both completion forms are recovered, but
-their DSP-side payloads remain opaque. Digest, checksum, compression, and
-block-correlation tests reject several simple inner formats. The official
-168-byte system-information record is traced across all three host layers,
-with its labeled fields tied to exact BAR sources. That path never uses the
-DSP command ring. The next milestone is a valid runtime response followed by a
-target-specific harmless program.
+General-purpose DSP execution is **not yet achieved**. An isolated official
+Windows reference run completed the exact OCTO firmware update's full
+625-descriptor payload chain, survived an RTC-backed cold power cycle, and
+started all eight DSP transports with the signed driver. A later official
+plug-in-host run produced four repeatable 770-dword card responses and two
+exact `Bill` intermediate-success responses for resources `0x120` and `0xd0`.
+This is the first dynamically validated OCTO resource-loader success.
+
+RealVerb-Pro instantiated but was disabled by the official host with error
+`-38`, which the recovered parser maps to an all-zero resource response. The
+ordinary `Bill` envelope, form-zero copy, allocator offsets, and success parser
+are therefore live-validated, but the multi-resource program did not complete
+and its DSP-side payloads remain opaque. Digest, checksum, compression, and
+block-correlation tests reject several simple inner formats. The next decisive
+step is the first failing resource boundary in that lawful sequence, followed
+by a decoded target-specific harmless program.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -65,14 +66,16 @@ is documented but intentionally unexecuted.
 | DSP0 DMA and endpoint reset | Confirmed | Experiments 002 and 003 |
 | Complete all-eight ring/DMA startup | Confirmed | [`docs/experiment-013-full-octo-start.md`](docs/experiment-013-full-octo-start.md) |
 | Host command dequeue | Confirmed | [`docs/experiment-014-016-full-start-queries.md`](docs/experiment-014-016-full-start-queries.md) |
-| Response delivery | Not yet observed | Experiments 014 through 016 |
+| Card-written response content | Confirmed, authorization table and `Bill` success | [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md) |
 | Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
 | Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
 | Major processors and data-sheet maps | Eight ADSP-21469 KBCZ-00 DSPs and one XC6SLX75T FGG676 FPGA optically confirmed | [`docs/dsp-model-and-memory-map.md`](docs/dsp-model-and-memory-map.md) |
-| Exact matching firmware container | Header descriptor consumed, first data descriptor not consumed; potentially persistent | [`docs/experiment-021-runtime-load.md`](docs/experiment-021-runtime-load.md) |
+| Exact matching firmware container | Full 625-descriptor official update consumed; restart and cold-boot behavior captured | [`docs/experiment-023-official-windows-reference.md`](docs/experiment-023-official-windows-reference.md) |
+| Official Windows lifecycle | Signed OCTO driver OK, all 16 rings published, exact response boundaries captured | [`docs/experiment-023-official-windows-reference.md`](docs/experiment-023-official-windows-reference.md) |
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
+| `Bill` DSP resource acceptance | Two form-zero intermediate successes on OCTO; complete plug-in still failed `-38` | [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
@@ -119,6 +122,8 @@ these tools on an older profile.
 - [`docs/firmware-container-analysis.md`](docs/firmware-container-analysis.md): offline container and loader findings
 - [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md): full installer firmware metadata and comparisons
 - [`docs/runtime-response-state.md`](docs/runtime-response-state.md): explicit boot/runtime state evidence
+- [`docs/experiment-023-official-windows-reference.md`](docs/experiment-023-official-windows-reference.md): signed Windows lifecycle and firmware transaction
+- [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md): nonzero responses and partial RealVerb resource load
 - [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
@@ -192,6 +197,20 @@ not justified.
 21. Submit the exact OCTO HBUT using the official large-block chain. The header
     descriptor was consumed, the first data descriptor was not, no response was
     written, and reset plus IOMMU teardown recovered the cold state.
+22. Establish a correctness-checked DGX Spark affine latency floor as a
+    preliminary GPU baseline. It is not yet a UAD comparison.
+23. Trace the exact official Windows firmware update and post-update lifecycle.
+    The complete 625-descriptor HBUT payload chain and response descriptor were
+    consumed, the updater requested a restart, RTC cold recovery succeeded, and
+    the signed driver published all 16 rings. Exact-boundary response targets
+    remained zero.
+24. Repeat connect plus query 026 after the official update and a cold boot.
+    Every command was consumed, no response was posted, all canaries held, and
+    explicit recovery passed.
+25. Run the official plug-in host. Four nonzero authorization-table candidates
+    and two exact `Bill` intermediate successes were captured. RealVerb-Pro
+    instantiated but was disabled with the official all-zero-response error
+    `-38`, so complete DSP program execution remains unproven.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:

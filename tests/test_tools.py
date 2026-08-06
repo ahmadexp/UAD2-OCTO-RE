@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import pathlib
 import struct
 import sys
@@ -296,6 +297,169 @@ class PcieLoaderInspectorTests(unittest.TestCase):
             candidate.flush()
             with self.assertRaisesRegex(ValueError, "driver hash mismatch"):
                 module.inspect(pathlib.Path(candidate.name))
+
+
+class QemuVfioTraceAnalyzerTests(unittest.TestCase):
+    def test_trace_summary_recovers_bar_milestones_and_config_access(self):
+        module = load_tool("analyze_qemu_vfio_trace")
+        trace = "\n".join(
+            [
+                "vfio_pci_read_config  (0000:03:00.0, @0x0, len=0x4) 0x21a00",
+                "vfio_pci_write_config  (0000:03:00.0, @0x4, 0x7, len=0x2)",
+                "vfio_region_write  (0000:03:00.0:region0+0x221c, 0x1, 4)",
+                "vfio_region_write  (0000:03:00.0:region0+0x221c, 0x0, 4)",
+                "vfio_region_write  (0000:03:00.0:region0+0x1a8, 0xbe0deaf, 4)",
+                "vfio_region_write  (0000:03:00.0:region0+0x2200, 0x1ff, 4)",
+                "vfio_region_read  (0000:03:00.0:region0+0x2218, 4) = 0xa012dc0d",
+            ]
+        )
+        writes = io.StringIO()
+        result = module.summarize(io.StringIO(trace), writes)
+        self.assertTrue(result["milestones"]["bar0_access_seen"])
+        self.assertTrue(result["milestones"]["ordinary_hard_reset_assert_seen"])
+        self.assertTrue(result["milestones"]["ordinary_hard_reset_deassert_seen"])
+        self.assertTrue(result["milestones"]["firmware_transition_magic_seen"])
+        self.assertTrue(result["milestones"]["all_eight_dma_enable_seen"])
+        self.assertEqual(result["config_registers"][0]["offset"], "0x000")
+        self.assertIn("hard_reset", writes.getvalue())
+
+    def test_ring_and_dsp_labels_cover_all_eight_engines(self):
+        module = load_tool("analyze_qemu_vfio_trace")
+        self.assertEqual(module.label_bar0_offset(0x2000), "dsp0_command_page0_low")
+        self.assertEqual(module.label_bar0_offset(0x2040), "dsp0_response_page0_low")
+        self.assertEqual(module.label_bar0_offset(0x6000), "dsp4_command_page0_low")
+        self.assertEqual(module.label_bar0_offset(0x61C0), "dsp7_response_page0_low")
+        self.assertEqual(module.label_bar0_offset(0x59A4), "dsp7_ready")
+
+
+class Uad2RingDumpAnalyzerTests(unittest.TestCase):
+    def test_command_dump_reports_only_nonzero_entries(self):
+        module = load_tool("analyze_uad2_ring_dump")
+        data = bytearray(module.RING_SIZE)
+        struct.pack_into("<4I", data, 16, 0x00100002, 0x12345678, 0, 0)
+        result = module.analyze(bytes(data), "command")
+        entries = result["rings"][0]["nonzero_entries"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["index"], 1)
+        self.assertEqual(entries[0]["kind"], "inline-command")
+
+    def test_dma_descriptor_combines_64_bit_address(self):
+        module = load_tool("analyze_uad2_ring_dump")
+        data = bytearray(module.RING_SIZE)
+        struct.pack_into("<4I", data, 0, 0x80000400, 0, 0x89ABC000, 0x12)
+        result = module.analyze(bytes(data), "response", dsp=3)
+        entry = result["rings"][0]["nonzero_entries"][0]
+        self.assertEqual(entry["kind"], "dma-descriptor")
+        self.assertEqual(entry["address"], "0x0000001289abc000")
+        self.assertEqual(result["rings"][0]["dsp"], 3)
+
+    def test_all_dsp_layout_has_sixteen_rings(self):
+        module = load_tool("analyze_uad2_ring_dump")
+        result = module.analyze(bytes(module.ALL_DSP_RING_SIZE), "all-dsps")
+        self.assertEqual(len(result["rings"]), 16)
+        self.assertEqual(result["rings"][-1]["dsp"], 7)
+        self.assertEqual(result["rings"][-1]["ring"], "response")
+
+
+class ResponseBoundaryCaptureTests(unittest.TestCase):
+    def test_response_ring_base_recovers_four_64_bit_addresses(self):
+        module = load_tool("../lab/windows/capture_response_boundary")
+        words = {}
+        for page in range(4):
+            low_offset = 0x2040 + page * 8
+            module.update_response_page_words(
+                f"vfio_region_write  (0000:03:00.0:region0+0x{low_offset:x}, "
+                f"0x{0x12345000 + page * 0x1000:x}, 4)",
+                words,
+            )
+            module.update_response_page_words(
+                f"vfio_region_write  (0000:03:00.0:region0+0x{low_offset + 4:x}, "
+                "0x2, 4)",
+                words,
+            )
+        self.assertEqual(
+            module.response_page_addresses(words),
+            [0x212345000, 0x212346000, 0x212347000, 0x212348000],
+        )
+
+    def test_consumed_index_selects_previous_descriptor(self):
+        module = load_tool("../lab/windows/capture_response_boundary")
+        page = bytearray(4096)
+        struct.pack_into("<4I", page, 2 * 16, 0x80000302, 0, 0xABCDF000, 1)
+        descriptor = module.descriptor_for_consumed_index(bytes(page), 3)
+        self.assertEqual(descriptor["descriptor_index"], 2)
+        self.assertEqual(descriptor["target_address"], 0x1ABCDF000)
+        self.assertTrue(descriptor["descriptor_valid"])
+
+    def test_hmp_filename_quotes_absolute_path(self):
+        module = load_tool("../lab/windows/capture_response_boundary")
+        self.assertEqual(
+            module.hmp_filename(pathlib.Path("/tmp/uad boundary/ring.bin")),
+            '"/tmp/uad boundary/ring.bin"',
+        )
+
+    def test_hmp_filename_rejects_monitor_injection(self):
+        module = load_tool("../lab/windows/capture_response_boundary")
+        with self.assertRaisesRegex(ValueError, "unsupported character"):
+            module.hmp_filename(pathlib.Path('/tmp/bad"path'))
+
+
+class ResponseAnalyzerTests(unittest.TestCase):
+    def test_authorization_table_response_is_classified(self):
+        module = load_tool("analyze_uad2_response")
+        words = [0] * 1024
+        words[0] = 0x80030302
+        words[1] = 0x12345678
+        words[2:770] = [
+            0x80000000,
+            0x81000000,
+            0x82000000,
+            0x83000000,
+        ] * 192
+        result = module.analyze(struct.pack("<1024I", *words))
+        self.assertTrue(result["authorization_table_candidate"])
+        self.assertEqual(result["response_kind"], "authorization-table")
+        self.assertEqual(result["declared_dwords"], 770)
+        self.assertEqual(result["body_dwords"], 768)
+        self.assertEqual(result["body_value_counts"]["0x80000000"], 192)
+        self.assertTrue(result["trailing_all_zero"])
+
+    def test_invalid_declared_length_is_rejected(self):
+        module = load_tool("analyze_uad2_response")
+        data = struct.pack("<1024I", 0x80030001, *([0] * 1023))
+        with self.assertRaisesRegex(ValueError, "outside the page"):
+            module.analyze(data)
+
+    def test_non_page_capture_is_rejected(self):
+        module = load_tool("analyze_uad2_response")
+        with self.assertRaisesRegex(ValueError, "exactly 4096"):
+            module.analyze(bytes(32))
+
+    def test_bill_intermediate_success_is_classified(self):
+        module = load_tool("analyze_uad2_response")
+        words = [0] * 1024
+        words[:4] = [0x80070004, 0, 0x00000120, 0x00010099]
+        result = module.analyze(struct.pack("<1024I", *words))
+        self.assertEqual(result["response_kind"], "bill-intermediate-success")
+        self.assertTrue(result["bill_intermediate_success"])
+        self.assertEqual(result["resource_id"], "0x00000120")
+        self.assertEqual(result["resource_command_word"], "0x00010099")
+
+    def test_all_zero_resource_response_is_classified(self):
+        module = load_tool("analyze_uad2_response")
+        result = module.analyze(bytes(4096))
+        self.assertEqual(result["response_kind"], "all-zero")
+        self.assertFalse(result["valid_bit"])
+        self.assertEqual(result["declared_dwords"], 0)
+
+    def test_bill_final_response_is_classified(self):
+        module = load_tool("analyze_uad2_response")
+        words = [0] * 1024
+        words[:4] = [0x80020044, 0, 0, 0xF0060003]
+        result = module.analyze(struct.pack("<1024I", *words))
+        self.assertEqual(result["response_kind"], "bill-final")
+        self.assertTrue(result["bill_final_response"])
+        self.assertEqual(result["bill_final_status_code"], 3)
 
 
 class UpdaterStateInspectorTests(unittest.TestCase):
