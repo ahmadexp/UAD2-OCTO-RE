@@ -404,6 +404,126 @@ class ResponseBoundaryCaptureTests(unittest.TestCase):
             module.hmp_filename(pathlib.Path('/tmp/bad"path'))
 
 
+class ResponseSequenceCaptureTests(unittest.TestCase):
+    def test_trace_state_tracks_bases_indices_and_transition(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        state = module.TraceState()
+        for base in (module.COMMAND_BASE, module.RESPONSE_BASE):
+            for page in range(4):
+                low = base + page * 8
+                module.update_trace_state(
+                    f"vfio_region_write  (0000:03:00.0:region0+0x{low:x}, "
+                    f"0x{0x10000000 + page * 0x1000:x}, 4)",
+                    state,
+                )
+                module.update_trace_state(
+                    f"vfio_region_write  (0000:03:00.0:region0+0x{low + 4:x}, "
+                    "0x1, 4)",
+                    state,
+                )
+        module.update_trace_state(
+            "vfio_region_write  (0000:03:00.0:region0+0x2024, 0x12, 4)", state
+        )
+        self.assertIsNone(
+            module.update_trace_state(
+                "vfio_region_read  (0000:03:00.0:region0+0x2068, 4) = 0x8",
+                state,
+            )
+        )
+        self.assertEqual(
+            module.update_trace_state(
+                "vfio_region_read  (0000:03:00.0:region0+0x2068, 4) = 0x9",
+                state,
+            ),
+            ("response-read", 8, 9),
+        )
+        self.assertEqual(state.command_host_index, 0x12)
+        self.assertEqual(
+            module.page_addresses(state.response_page_words, module.RESPONSE_BASE),
+            [0x110000000, 0x110001000, 0x110002000, 0x110003000],
+        )
+
+    def test_advanced_indices_handles_wrap(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        self.assertEqual(module.advanced_indices(1022, 2), [1022, 1023, 0, 1])
+        self.assertEqual(module.advanced_indices(7, 7), [])
+
+    def test_descriptor_page_selection_and_dma_fields(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        pages = [bytearray(4096) for _ in range(4)]
+        struct.pack_into(
+            "<4I", pages[2], 3 * 16, 0x80000073, 0, 0x23456000, 0x1
+        )
+        words = module.descriptor_words([bytes(page) for page in pages], 515)
+        descriptor = module.dma_descriptor(words)
+        self.assertTrue(descriptor["valid"])
+        self.assertEqual(descriptor["length_dwords"], 0x73)
+        self.assertEqual(descriptor["length_bytes"], 0x1CC)
+        self.assertEqual(descriptor["address"], 0x123456000)
+
+    def test_response_classifier_covers_known_forms(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        page = bytearray(4096)
+        struct.pack_into("<4I", page, 0, 0x80070004, 0, 0x120, 0x10099)
+        self.assertEqual(
+            module.classify_response(bytes(page))["kind"],
+            "bill-intermediate-success",
+        )
+        self.assertEqual(module.classify_response(bytes(4096))["kind"], "all-zero")
+
+    def test_command_host_write_reports_transition(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        state = module.TraceState(command_host_index=7)
+        self.assertEqual(
+            module.update_trace_state(
+                "vfio_region_write  (0000:03:00.0:region0+0x2024, 0x9, 4)",
+                state,
+            ),
+            ("command-host", 7, 9),
+        )
+
+    def test_command_metadata_finds_bill_after_resource_envelope(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        pages = [bytearray(4096) for _ in range(4)]
+        target = bytearray(32)
+        struct.pack_into("<2I4s4I", target, 0, 0x00010008, 0x4000,
+                         b"Bill", 0x120, 0x02000000, 4, 0)
+        struct.pack_into("<4I", pages[0], 0, 0x80000008, 0, 0x1000, 0)
+        old_save = module.save_memory
+        module.save_memory = lambda host, port, address, size, path: bytes(target)
+        try:
+            result = module.command_metadata(
+                [bytes(page) for page in pages], [0], pathlib.Path("/tmp"),
+                "127.0.0.1", 4444,
+            )[0]
+        finally:
+            module.save_memory = old_save
+        self.assertEqual(result["bill_metadata"]["offset_bytes"], 8)
+        self.assertEqual(result["bill_metadata"]["resource_id"], "0x00000120")
+        self.assertEqual(result["bill_metadata"]["payload_form"], 0)
+        self.assertEqual(result["bill_metadata"]["dsp_generation"], 2)
+        self.assertEqual(result["bill_metadata"]["replacement_dwords"], 0)
+        self.assertEqual(
+            result["resource_envelope"]["allocation_offset_dwords"],
+            "0x00004000",
+        )
+
+    def test_response_sampling_schedule_stays_below_loader_timeout(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        self.assertEqual(module.RESPONSE_SAMPLE_DELAYS_MS, (0, 5, 100))
+        self.assertLess(
+            max(module.RESPONSE_SAMPLE_DELAYS_MS),
+            module.RESOURCE_COMPLETION_WAIT_MS,
+        )
+
+    def test_hmp_filename_requires_absolute_safe_path(self):
+        module = load_tool("../lab/windows/capture_response_sequence")
+        with self.assertRaisesRegex(ValueError, "absolute"):
+            module.hmp_filename(pathlib.Path("relative.bin"))
+        with self.assertRaisesRegex(ValueError, "unsupported"):
+            module.hmp_filename(pathlib.Path('/tmp/bad"path'))
+
+
 class ResponseAnalyzerTests(unittest.TestCase):
     def test_authorization_table_response_is_classified(self):
         module = load_tool("analyze_uad2_response")
@@ -533,6 +653,91 @@ class SystemInfoPathInspectorTests(unittest.TestCase):
                     module.SYSTEM_SHA256,
                     module.SYSTEM_SIGNATURES,
                 )
+
+
+class AuthorizationStateInspectorTests(unittest.TestCase):
+    def test_signatures_are_hash_locked_and_unique(self):
+        module = load_tool("inspect_authorization_states")
+        for signatures in (
+            module.PERFMON_SIGNATURES,
+            module.SYSTEM_SIGNATURES,
+            module.PCIE_SIGNATURES,
+        ):
+            addresses = [address for address, _bytes, _meaning in signatures]
+            self.assertEqual(len(addresses), len(set(addresses)))
+            self.assertTrue(all(expected for _address, expected, _meaning in signatures))
+        self.assertEqual(len(module.PERFMON_SHA256), 64)
+        self.assertEqual(len(module.SYSTEM_SHA256), 64)
+        self.assertEqual(len(module.PCIE_SHA256), 64)
+
+    def test_exact_wire_state_mapping(self):
+        module = load_tool("inspect_authorization_states")
+        self.assertEqual(module.decode_wire_value(0), (3, "demo expired", 0))
+        self.assertEqual(
+            module.decode_wire_value(0x80000000),
+            (2, "demo not started", None),
+        )
+        self.assertEqual(module.decode_wire_value(0x81000000), (0, "authorized", None))
+        self.assertEqual(module.decode_wire_value(0x82000000), (0, "authorized", None))
+        self.assertEqual(
+            module.decode_wire_value(0x83000000),
+            (4, "authorization update required", None),
+        )
+        self.assertEqual(module.decode_wire_value(0x00001000), (1, "demo active", 1))
+        self.assertEqual(module.decode_wire_value(0x00001001), (1, "demo active", 2))
+
+    def test_observed_table_counts_collapse_to_display_states(self):
+        module = load_tool("inspect_authorization_states")
+        values = (
+            [0x80000000] * 203
+            + [0x81000000] * 2
+            + [0x82000000] * 24
+            + [0x83000000] * 539
+        )
+        summary = module.summarize_wire_values(values)
+        self.assertEqual(summary["entry_count"], 768)
+        self.assertEqual(
+            summary["display_state_counts"],
+            {
+                "authorization update required": 539,
+                "authorized": 26,
+                "demo not started": 203,
+            },
+        )
+
+    def test_unknown_binary_is_refused(self):
+        module = load_tool("inspect_authorization_states")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not an analyzed UAD binary")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.verify(
+                    pathlib.Path(candidate.name),
+                    module.PCIE_SHA256,
+                    module.PCIE_SIGNATURES,
+                )
+
+
+class PublicBillStatusInspectorTests(unittest.TestCase):
+    def test_signatures_and_error_mapping_are_hash_locked(self):
+        module = load_tool("inspect_public_bill_status")
+        self.assertEqual(len(module.KNOWN_SHA256), 64)
+        addresses = [address for address, _expected, _meaning in module.SIGNATURES]
+        self.assertEqual(len(addresses), len(set(addresses)))
+        self.assertTrue(all(expected for _address, expected, _meaning in module.SIGNATURES))
+        self.assertEqual(module.EXPLICIT_STATUS_TO_HOST_ERROR[5], -55)
+        self.assertEqual(module.EXPLICIT_STATUS_TO_HOST_ERROR[13], -60)
+        self.assertEqual(module.host_error(0x0005), -55)
+        self.assertEqual(module.host_error(0x000D), -60)
+        self.assertEqual(module.host_error(0x0123), -57)
+
+    def test_unknown_binary_is_refused(self):
+        module = load_tool("inspect_public_bill_status")
+        with tempfile.NamedTemporaryFile() as candidate:
+            candidate.write(b"not the analyzed public kext")
+            candidate.flush()
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.inspect(pathlib.Path(candidate.name))
 
 
 class BillLoaderInspectorTests(unittest.TestCase):
@@ -773,7 +978,7 @@ class Experiment013SourceTests(unittest.TestCase):
 class Experiment014SourceTests(unittest.TestCase):
     def test_query_uses_full_octo_state_and_compressed_mask(self):
         source = (ROOT / "tools" / "vfio_full_query.c").read_text()
-        self.assertIn("#define PAGE_COUNT 65", source)
+        self.assertIn("#define PAGE_COUNT 66", source)
         self.assertIn("#define DMA_ALL_DSPS 0x000001ff", source)
         self.assertIn("#define CALLBACK_SHADOW 0xcccccccc", source)
         self.assertIn("#define QUERY_SHADOW 0xcccccccf", source)
@@ -785,6 +990,19 @@ class Experiment014SourceTests(unittest.TestCase):
         self.assertIn("#define SEQUENCE_COMMAND 0x00270001", source)
         self.assertIn("#define SEQUENCE_RESPONSE_HEADER 0x800d0002", source)
         self.assertIn('strcmp(argv[1], "--connect")', source)
+
+    def test_authenticated_bill_modes_are_bounded_and_target_specific(self):
+        source = (ROOT / "tools" / "vfio_full_query.c").read_text()
+        wrapper = (ROOT / "tools" / "uad2-vfio-full-query.sh").read_text()
+        self.assertIn("#define RESOURCE_PAGE 65", source)
+        self.assertIn("#define BILL_TARGET_BYTES 460", source)
+        self.assertIn("bill_mutation_offset", source)
+        self.assertIn("target_dsp", source)
+        self.assertIn("response_interrupt_shadow = interrupt_shadow", source)
+        self.assertIn("final_interrupt_shadow = interrupt_shadow", source)
+        self.assertIn("non_target_indices_unchanged", source)
+        self.assertIn("EXPECTED_SHA256", wrapper)
+        self.assertIn("--post-official-bill-dsp", wrapper)
 
 
 class Experiment018SourceTests(unittest.TestCase):

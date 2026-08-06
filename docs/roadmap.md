@@ -18,6 +18,8 @@ buffers, report completion, and recover from failure.
       OCTO capability branch does not instantiate.
 - [x] Recover the eight-DSP compressed interrupt-vector mapping.
 - [x] Receive benign card-written responses through the official runtime.
+- [x] Receive the same benign query response directly from Linux after safely
+      adopting the resident official framework.
 
 ## Phase 2: loader and executable format
 
@@ -27,7 +29,9 @@ buffers, report completion, and recover from failure.
 - [x] Identify the fixed 64-byte FBUT/GBUT/HBUT wrapper and exact OCTO artifact.
 - [x] Inventory all 47 installer firmware containers, their build words,
       compatibility IDs, declared sizes, entropy, and direct SHA-256 tail tests.
-- [ ] Determine whether executable containers are signed or authenticated.
+- [x] Prove device-side integrity or authentication covers both regions of one
+      accepted `Bill` body through single-bit differentials.
+- [ ] Identify the integrity or authentication algorithm and key source.
 - [ ] Recover relocation, segment, entry-point, and memory-protection rules.
 - [x] Build a bounded offline wrapper parser with synthetic tests.
 - [x] Recover the `Bill` program-resource outer header and deterministic host
@@ -37,8 +41,10 @@ buffers, report completion, and recover from failure.
       response forms, and the exact final status mapping.
 - [x] Identify absolute pool bases, bounds, and reserved ranges for all eight
       DSPs with a read-only VFIO snapshot.
-- [x] Observe two official form-zero resource allocations and exact
-      intermediate-success responses on DSP0.
+- [x] Observe exact form-zero resource successes on DSP0, including the first
+      RealVerb object submitted from Linux.
+- [x] Repeat exact authenticated-resource acceptance independently across all
+      eight DSPs with non-target ring-index isolation.
 - [ ] Decode opaque payloads into segments and relocations, if those concepts
       are present in the DSP-side format.
 
@@ -50,22 +56,23 @@ payload descriptors and the response descriptor were consumed, the updater
 requested restart, and RTC cold recovery succeeded. The completion page and
 the later exact-boundary runtime response targets remained zero. Experiment
 024 showed that the update alone does not enable query 026 after a cold boot.
-Experiment 025 then activated the official plug-in path. It produced four
-repeatable nonzero authorization-table candidates and exact `Bill` successes
-for resources `0x120` and `0xd0`. RealVerb-Pro instantiated but was disabled on
-the recovered `-38` all-zero-response path, so a complete program is still not
-available.
+Experiment 025 then activated the official plug-in path. Experiments 026
+through 030 named the authorization states, isolated `0x12b` as the first zero
+target in the invasive capture, safely bridged the resident framework to
+Linux, accepted that exact object, proved whole-body integrity enforcement,
+and repeated acceptance across all eight DSPs. A module entry point and
+bounded program output are still not available.
 
 ## Current blockers
 
 | Goal | Blocking evidence | Required evidence before implementation |
 |---|---|---|
-| Valid response semantics | Valid table and `Bill` responses are captured, but four table states are unnamed and the complete load later reaches an all-zero response | Isolate the first failing resource response and correlate it with the host object |
-| Payload authentication and transform | Form-zero byte-for-byte transfer is dynamically accepted twice, but HBUT and `Bill` inner bodies remain opaque. No host-side verifier was found | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
+| Valid response semantics | Closed for query 026, authorization, and exact Bill success. The earlier first zero target is identified as `0x12b` and succeeds under the bounded Linux path | No response-semantic blocker remains for a first program |
+| Payload authentication and transform | Single-bit changes in the prefix and core are rejected with structured device statuses. The algorithm and cleartext remain opaque | Recover the DSP-side consumer or obtain a lawful decoded reference artifact |
 | Relocations and runtime reservations | Pool bounds and live offsets `0xe023a` and `0xe02fa` are known, but no decoded segment, entry-point, or relocation record is visible | Decode one accepted target-compatible resource and correlate its inner accesses |
-| Harmless DSP0 program | An official multi-resource attempt instantiated RealVerb but ended in `-38`; no proven entry ABI or output exists | Resolve the failing response, then derive a target-specific minimal program format |
+| Harmless DSP0 program | Exact authenticated resource loading succeeds, but no proven entry ABI or output exists and arbitrary modifications are rejected | Derive a target-specific clear program format and lawful authentication path |
 | General-purpose job API | Resource completions are real, but program handles and buffer ownership would still be guesses | One complete program load, bounded buffer exchange, and completion response |
-| Eight-DSP program isolation | Reset isolation is proven only with empty transports | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
+| Eight-DSP program isolation | Authenticated loader isolation is proven on all eight engines, but no entry point ran | First prove one recoverable program on DSP0, then repeat with per-engine fault injection |
 
 The transport module remains fail-closed for program, buffer, submit, and wait
 operations until these evidence gates are met.

@@ -18,6 +18,9 @@ program load.
 | Official plug-in host active | four repeatable `0x80030302` responses | stable 768-entry four-state table plus request token |
 | Official resource loader | form-zero resources `0x120` and `0xd0` submitted at observed pool offsets | exact `0x80070004` intermediate success for both |
 | RealVerb-Pro instantiated | VST3 user interface opened through the official host | disabled with `-38` after an all-zero response |
+| Linux adopted framework | fresh Linux IOMMU rings published after the VM exited in DMA reset | query 026 returned `0x800c0005` in 1 ms |
+| Exact first RealVerb object | private hash-locked `0x12b` target submitted from Linux | exact `0x80070004` success in 1 ms |
+| Eight-engine loader isolation | exact `0x12b` object targeted independently at DSP0 through DSP7 | all eight accepted; every non-target index set stayed unchanged |
 | Program active | requires framework, allocation, load, and completion ABI | not reached |
 
 Command-ring consumption proves that the FPGA DMA front end recognizes the
@@ -65,8 +68,9 @@ persistent update alone does not expose query 026 after a cold boot.
 
 Experiment 025 then activated the missing official plug-in path. Four response
 targets contained header `0x80030302`, a command-correlated token, and the same
-768-dword body. The body uses only `0x80000000`, `0x81000000`, `0x82000000`,
-and `0x83000000`; their license or capability meanings are not assigned.
+768-dword body. Static recovery now maps those wire values exactly to Demo not
+started, Authorized, Authorized, and Auth update required. The two authorized
+wire encodings deliberately collapse to one host state.
 
 The same run produced exact `0x80070004` intermediate successes for official
 form-zero `Bill` resources `0x120` and `0xd0`. Their response IDs and command
@@ -74,13 +78,19 @@ words match their submitted envelopes. RealVerb-Pro later displayed the
 official device-not-responding error `-38`, which the recovered resource parser
 assigns to an all-zero four-dword response.
 
-The remaining categories are now narrower:
+Experiment 026 identified the first zero response target as resource `0x12b`.
+Experiment 028 then submitted the exact same object from Linux and received
+success in 1 ms. The result disproves intrinsic object rejection as the meaning
+of the earlier zero. The invasive boundary capture and Linux replay used
+different observation and framework-state contexts, so their exact causal
+difference remains unassigned.
 
-- the first resource or status object in the multi-resource chain whose target
-  remains zero;
-- DSP-side validation, authorization, allocation, or relocation after the two
-  accepted `Bill` objects;
-- the segment, entry, and buffer ABI inside an accepted opaque core.
+Experiment 029 changed one bit at the first and last preserved-prefix bytes and
+at four trailing-core positions. All six changes were rejected with structured
+`0xf001` status while unchanged controls succeeded. This proves device-side
+integrity or authentication over both body regions without identifying the
+algorithm. Experiment 030 repeated exact acceptance on every DSP with no
+non-target ring-index changes.
 
 The adjacent commands `0x000d0000` and `0x000e0000` are not evidence that they
 must bracket the initial update. The exact `UAD2System.sys` common dispatcher
@@ -107,16 +117,14 @@ Experiment 020. See [`framework-property-map.md`](framework-property-map.md).
 
 ## Next evidence, in order
 
-1. Repeat the lawful RealVerb-Pro sequence with a boundary capture for every
-   four-dword response until the first all-zero target is uniquely associated
-   with its command object. Do not publish proprietary plug-in bytes or
-   secrets.
-2. Determine whether that object is a `Bill`, operation-13 status request, or
-   another loader phase, then explain why it returns no content.
-3. Identify the DSP-side consumer of one accepted form-zero `Bill` resource and
-   decode one target-compatible inner core.
-4. Only then define a bounded DSP0 heartbeat with a unique response, output,
-   timeout, and recovery oracle.
+1. Identify the DSP-side consumer of the accepted form-zero `0x12b` object and
+   capture its decoded cleartext without publishing proprietary bytes.
+2. Recover the segment, relocation, entry-point, and runtime-reservation
+   records from that cleartext.
+3. Define a bounded DSP0 heartbeat with a unique response, output, timeout, and
+   recovery oracle.
+4. Only after that run should buffer, program, submit, and wait UAPI operations
+   be enabled.
 
 Repeating queries, changing descriptor size without evidence, or sending the
 neighbor wrappers does not satisfy this standard.

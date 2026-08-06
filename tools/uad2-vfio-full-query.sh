@@ -7,11 +7,46 @@ DRIVER="/sys/bus/pci/drivers/vfio-pci"
 PROBE="/tmp/uad2-vfio-full-query"
 
 MODE="${1-}"
-if [ "$#" -gt 1 ] || { [ -n "$MODE" ] && [ "$MODE" != "--connect" ] && \
-   [ "$MODE" != "--connect-query-027" ]; } || \
+PAYLOAD="${2-}"
+MUTATION_OFFSET="${3-}"
+if [ "$#" -gt 3 ] || \
+   { [ "$MODE" = "--post-official-bill" ] && [ "$#" -ne 2 ]; } || \
+   { [ "$MODE" = "--post-official-bill-flip" ] && [ "$#" -ne 3 ]; } || \
+   { [ "$MODE" = "--post-official-bill-dsp" ] && [ "$#" -ne 3 ]; } || \
+   { [ "$MODE" != "--post-official-bill" ] && \
+     [ "$MODE" != "--post-official-bill-flip" ] && \
+     [ "$MODE" != "--post-official-bill-dsp" ] && [ "$#" -gt 1 ]; } || \
+   { [ -n "$MODE" ] && [ "$MODE" != "--connect" ] && \
+   [ "$MODE" != "--connect-query-027" ] && \
+   [ "$MODE" != "--post-official" ] && \
+   [ "$MODE" != "--post-official-bill" ] && \
+   [ "$MODE" != "--post-official-bill-flip" ] && \
+   [ "$MODE" != "--post-official-bill-dsp" ]; } || \
    [ "$(id -u)" -ne 0 ]; then
-    echo "refusing: expected optional --connect or --connect-query-027 and root" >&2
-    exit 1
+	echo "refusing: invalid full-query mode, arguments, or privileges" >&2
+	exit 1
+fi
+if [ "$MODE" = "--post-official-bill" ] || \
+   [ "$MODE" = "--post-official-bill-flip" ] || \
+   [ "$MODE" = "--post-official-bill-dsp" ]; then
+	EXPECTED_SHA256="0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0"
+	if [ ! -f "$PAYLOAD" ] || \
+	   [ "$(sha256sum "$PAYLOAD" | awk '{print $1}')" != "$EXPECTED_SHA256" ]; then
+		echo "refusing: Bill command target is not the exact captured object" >&2
+		exit 1
+	fi
+fi
+if [ "$MODE" = "--post-official-bill-dsp" ]; then
+	case "$MUTATION_OFFSET" in
+		0|1|2|3|4|5|6|7) ;;
+		*) echo "refusing: target DSP must be 0 through 7" >&2; exit 1 ;;
+	esac
+fi
+if [ "$MODE" = "--post-official-bill-flip" ]; then
+	case "$MUTATION_OFFSET" in
+		28|75|76|123|124|459) ;;
+		*) echo "refusing: mutation must be an approved body-boundary offset" >&2; exit 1 ;;
+	esac
 fi
 if [ ! -d "$DEVICE" ] || [ -L "$DEVICE/driver" ]; then
     echo "refusing: endpoint is absent or already bound" >&2
@@ -56,7 +91,13 @@ if [ ! -L "$DEVICE/driver" ] || \
     echo "refusing: vfio-pci did not bind" >&2
     exit 1
 fi
-if [ -n "$MODE" ]; then
+if [ "$MODE" = "--post-official-bill" ]; then
+	"$PROBE" "$MODE" "$PAYLOAD"
+elif [ "$MODE" = "--post-official-bill-flip" ]; then
+	"$PROBE" "$MODE" "$PAYLOAD" "$MUTATION_OFFSET"
+elif [ "$MODE" = "--post-official-bill-dsp" ]; then
+	"$PROBE" "$MODE" "$PAYLOAD" "$MUTATION_OFFSET"
+elif [ -n "$MODE" ]; then
     "$PROBE" "$MODE"
 else
     "$PROBE"

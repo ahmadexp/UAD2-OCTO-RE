@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "experiment": "027-post-official-query-026",
+  "target": {
+    "bdf": "0000:03:00.0",
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "dsp_count": 8
+  },
+  "adopted_state": {
+    "official_framework_resident": true,
+    "dma_control_before": "0x0001fe00",
+    "stale_ring_addresses_cleared_while_dma_reset": true,
+    "linux_iommu_pages_published": true
+  },
+  "transaction": {
+    "command": "0x00260001",
+    "response_header": "0x800c0005",
+    "response_dwords": 5,
+    "private_response_body_sha256": "bc76ab19aa69109c4142058b76697bc0e6794d7d194e45d4c34f431aa7367ad7",
+    "complete_response_sha256": "8d13987577e57df6f19e7872edd2e16f26a11fac39d86419ac97d8185f10569f",
+    "polls_ms": 1,
+    "command_consumed": true,
+    "response_consumed": true,
+    "header_matches": true
+  },
+  "containment": {
+    "writes_confined_to_response_prefix": true,
+    "all_dsps_ready": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true,
+    "post_unbind_enable": 0,
+    "post_unbind_pci_command": "0x0002"
+  },
+  "success": true
+}

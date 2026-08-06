@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -24,8 +25,9 @@
 #define PAGE_SIZE_4K 4096
 #define DSP_COUNT 8
 #define RING_PAGE_COUNT 64
-#define PAGE_COUNT 65
+#define PAGE_COUNT 66
 #define RESPONSE_PAGE 64
+#define RESOURCE_PAGE 65
 #define DMA_CONTROL 0x2200
 #define INTERRUPT_ENABLE 0x2204
 #define INTERRUPT_ACK 0x2208
@@ -45,6 +47,15 @@
 #define CLOCK_COMMAND 0x00100002
 #define SEQUENCE_COMMAND 0x00270001
 #define SEQUENCE_RESPONSE_HEADER 0x800d0002
+#define BILL_RESPONSE_HEADER 0x80070004
+#define BILL_TARGET_BYTES 460
+#define BILL_TARGET_DWORDS 115
+#define BILL_TARGET_COMMAND 0x00010073
+#define BILL_TARGET_OFFSET 0x000e0000
+#define BILL_MAGIC 0x6c6c6942
+#define BILL_RESOURCE_ID 0x0000012b
+#define BILL_BODY_BYTES 432
+#define BILL_REPLACEMENT_DWORDS 96
 
 static const uint32_t dsp_banks[DSP_COUNT] = {
 	0x2000, 0x2080, 0x2100, 0x2180,
@@ -172,11 +183,20 @@ int main(int argc, char **argv)
 	bool command_consumed = false, response_consumed = false;
 	bool connect_first = false, connect_consumed = false;
 	bool header_matches = false, memory_bounded = false, ready_after = false;
+	bool bill_accepted = false;
 	bool restored = false, reset_recovered = false;
+	bool post_official = false;
+	bool bill_probe = false;
+	bool bill_mutation = false;
+	bool bill_isolation = false;
+	unsigned long bill_mutation_offset = 0;
+	unsigned int target_dsp = 0;
+	bool non_target_indices_unchanged = false;
 	unsigned int dsp, ring, poll = 0, connect_poll = 0, word;
 	uint32_t interrupt_shadow = CALLBACK_SHADOW;
+	uint32_t response_interrupt_shadow = 0, final_interrupt_shadow = 0;
 	uint32_t query_command_index = 0, query_response_index = 0;
-	int result = EXIT_FAILURE;
+	int resource_fd = -1, result = EXIT_FAILURE;
 
 	sigemptyset(&action.sa_mask);
 	sigaction(SIGINT, &action, NULL);
@@ -190,8 +210,51 @@ int main(int argc, char **argv)
 		selected_header = SEQUENCE_RESPONSE_HEADER;
 		selected_response_words = 2;
 	}
+	else if (argc == 2 && strcmp(argv[1], "--post-official") == 0)
+		post_official = true;
+	else if (argc == 3 && strcmp(argv[1], "--post-official-bill") == 0) {
+		post_official = true;
+		bill_probe = true;
+		selected_header = BILL_RESPONSE_HEADER;
+		selected_response_words = 4;
+	}
+	else if (argc == 4 && strcmp(argv[1], "--post-official-bill-flip") == 0) {
+		char *end = NULL;
+
+		post_official = true;
+		bill_probe = true;
+		bill_mutation = true;
+		selected_header = BILL_RESPONSE_HEADER;
+		selected_response_words = 4;
+		errno = 0;
+		bill_mutation_offset = strtoul(argv[3], &end, 10);
+		if (errno || !end || *end != '\0' ||
+		    (bill_mutation_offset != 28 && bill_mutation_offset != 75 &&
+		     bill_mutation_offset != 76 && bill_mutation_offset != 123 &&
+		     bill_mutation_offset != 124 && bill_mutation_offset != 459)) {
+			fprintf(stderr, "experiment-029: mutation offset is not approved\n");
+			return EXIT_FAILURE;
+		}
+	}
+	else if (argc == 4 && strcmp(argv[1], "--post-official-bill-dsp") == 0) {
+		char *end = NULL;
+		unsigned long parsed;
+
+		post_official = true;
+		bill_probe = true;
+		bill_isolation = true;
+		selected_header = BILL_RESPONSE_HEADER;
+		selected_response_words = 4;
+		errno = 0;
+		parsed = strtoul(argv[3], &end, 10);
+		if (errno || !end || *end != '\0' || parsed >= DSP_COUNT) {
+			fprintf(stderr, "experiment-030: target DSP is invalid\n");
+			return EXIT_FAILURE;
+		}
+		target_dsp = (unsigned int)parsed;
+	}
 	else if (argc != 1) {
-		fprintf(stderr, "usage: vfio_full_query [--connect|--connect-query-027]\n");
+		fprintf(stderr, "usage: vfio_full_query [--connect|--connect-query-027|--post-official|--post-official-bill exact-command-target|--post-official-bill-flip exact-command-target {28|75|76|123|124|459}|--post-official-bill-dsp exact-command-target {0..7}]\n");
 		return EXIT_FAILURE;
 	}
 	if (sysconf(_SC_PAGESIZE) != PAGE_SIZE_4K) {
@@ -226,15 +289,52 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 	memset(memory, 0, RING_PAGE_COUNT * PAGE_SIZE_4K);
-	memset(memory + RESPONSE_PAGE * PAGE_SIZE_4K, 0xa5, PAGE_SIZE_4K);
+	memset(memory + RESPONSE_PAGE * PAGE_SIZE_4K,
+	       bill_probe ? 0 : 0xa5, PAGE_SIZE_4K);
 	response_buffer = (uint32_t *)(memory + RESPONSE_PAGE * PAGE_SIZE_4K);
+	if (bill_probe) {
+		struct stat resource_stat;
+		uint32_t *resource = (uint32_t *)(memory +
+			RESOURCE_PAGE * PAGE_SIZE_4K);
+		size_t received = 0;
+
+		resource_fd = open(argv[2], O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+		if (resource_fd < 0 || fstat(resource_fd, &resource_stat) < 0 ||
+		    !S_ISREG(resource_stat.st_mode) ||
+		    resource_stat.st_size != BILL_TARGET_BYTES) {
+			fprintf(stderr, "experiment-028: refusing unexpected Bill target\n");
+			goto cleanup;
+		}
+		while (received < BILL_TARGET_BYTES) {
+			ssize_t chunk = read(resource_fd,
+				(unsigned char *)resource + received,
+				BILL_TARGET_BYTES - received);
+
+			if (chunk <= 0) {
+				fprintf(stderr,
+					"experiment-028: could not read exact Bill target\n");
+				goto cleanup;
+			}
+			received += (size_t)chunk;
+		}
+		if (resource[0] != BILL_TARGET_COMMAND ||
+		    resource[1] != BILL_TARGET_OFFSET ||
+		    resource[2] != BILL_MAGIC || resource[3] != BILL_RESOURCE_ID ||
+		    resource[4] != 0 || resource[5] != BILL_BODY_BYTES ||
+		    resource[6] != BILL_REPLACEMENT_DWORDS) {
+			fprintf(stderr, "experiment-028: Bill target structure mismatch\n");
+			goto cleanup;
+		}
+		if (bill_mutation)
+			((unsigned char *)resource)[bill_mutation_offset] ^= 1;
+	}
 
 	dma_map.flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE;
 	dma_map.vaddr = (uintptr_t)memory;
 	dma_map.iova = TEST_IOVA;
 	dma_map.size = memory_size;
 	if (ioctl(container, VFIO_IOMMU_MAP_DMA, &dma_map) < 0) {
-		perror("experiment-014: map 65 IOVA pages");
+		perror("experiment-014: map IOVA pages");
 		goto cleanup;
 	}
 	dma_mapped = true;
@@ -253,17 +353,28 @@ int main(int argc, char **argv)
 		perror("experiment-014: map BAR0");
 		goto cleanup;
 	}
-	if (!all_rings_zero(bar) || !all_ready(bar) ||
-	    read32(bar, DMA_CONTROL) != DMA_COLD_RESET ||
+	if (!all_ready(bar) || read32(bar, DMA_CONTROL) != DMA_COLD_RESET ||
 	    read32(bar, INTERRUPT_ENABLE) != 0) {
 		fprintf(stderr, "experiment-014: baseline precondition changed\n");
 		goto cleanup;
+	}
+	if (!post_official && !all_rings_zero(bar)) {
+		fprintf(stderr, "experiment-014: baseline rings are not empty\n");
+		goto cleanup;
+	}
+	if (post_official) {
+		/*
+		 * The reference VM's DMA mappings no longer exist. With DMA held in
+		 * cold reset, discard only its stale page addresses and host pointers.
+		 * The global DMA reset below synchronizes hardware read indices.
+		 */
+		clear_rings(bar);
 	}
 
 	for (dsp = 0; dsp < DSP_COUNT; dsp++) {
 		for (ring = 0; ring < 2; ring++) {
 			raw = read32(bar, dsp_banks[dsp] + ring * 0x40 + 0x28);
-			indexes[dsp][ring] = raw < 1024 ? raw : 0;
+			indexes[dsp][ring] = post_official ? 0 : (raw < 1024 ? raw : 0);
 		}
 	}
 	if (connect_first) {
@@ -281,12 +392,21 @@ int main(int argc, char **argv)
 		command_entry[1] = day_and_time();
 		query_command_index = 2;
 	} else {
-		query_command_index = indexes[0][0];
+		query_command_index = indexes[target_dsp][0];
 	}
-	query_response_index = indexes[0][1];
-	command_entry = ring_entry(memory, 0, 0, query_command_index);
-	response_entry = ring_entry(memory, 0, 1, query_response_index);
-	command_entry[0] = selected_command;
+	query_response_index = indexes[target_dsp][1];
+	command_entry = ring_entry(memory, target_dsp, 0, query_command_index);
+	response_entry = ring_entry(memory, target_dsp, 1, query_response_index);
+	if (bill_probe) {
+		uint64_t resource_iova = TEST_IOVA +
+			RESOURCE_PAGE * (uint64_t)PAGE_SIZE_4K;
+
+		command_entry[0] = 0x80000000U | BILL_TARGET_DWORDS;
+		command_entry[2] = (uint32_t)resource_iova;
+		command_entry[3] = (uint32_t)(resource_iova >> 32);
+	} else {
+		command_entry[0] = selected_command;
+	}
 	response_entry[0] = 0x80000000 | selected_response_words;
 	response_entry[2] = (uint32_t)(TEST_IOVA + RESPONSE_PAGE * (uint64_t)PAGE_SIZE_4K);
 	response_entry[3] = (uint32_t)((TEST_IOVA +
@@ -345,41 +465,67 @@ int main(int argc, char **argv)
 	}
 
 	response_position = (query_response_index + 1) % 1024;
-	write32(bar, dsp_banks[0] + 0x40 + 0x24, response_position);
-	write32(bar, dsp_banks[0] + 0x40 + 0x20, response_position);
-	interrupt_shadow |= 2;
-	write32(bar, INTERRUPT_ENABLE,
-		connect_first ? interrupt_shadow : RESPONSE_SHADOW);
+	write32(bar, dsp_banks[target_dsp] + 0x40 + 0x24, response_position);
+	write32(bar, dsp_banks[target_dsp] + 0x40 + 0x20, response_position);
+	interrupt_shadow |= 2U << (target_dsp * 4);
+	response_interrupt_shadow = interrupt_shadow;
+	write32(bar, INTERRUPT_ENABLE, response_interrupt_shadow);
 	command_position = (query_command_index + 1) % 1024;
-	write32(bar, dsp_banks[0] + 0x24, command_position);
-	write32(bar, dsp_banks[0] + 0x20, command_position);
-	interrupt_shadow |= 1;
-	write32(bar, INTERRUPT_ENABLE,
-		connect_first ? interrupt_shadow : QUERY_SHADOW);
+	write32(bar, dsp_banks[target_dsp] + 0x24, command_position);
+	write32(bar, dsp_banks[target_dsp] + 0x20, command_position);
+	interrupt_shadow |= 1U << (target_dsp * 4);
+	final_interrupt_shadow = interrupt_shadow;
+	write32(bar, INTERRUPT_ENABLE, final_interrupt_shadow);
 
-	for (poll = 0; poll < POLL_COUNT && !interrupted; poll++) {
-		uint32_t command_read = read32(bar, dsp_banks[0] + 0x28);
-		uint32_t response_read = read32(bar, dsp_banks[0] + 0x40 + 0x28);
+	for (poll = 0; poll < (bill_probe ? 6000U : POLL_COUNT) && !interrupted;
+	     poll++) {
+		uint32_t command_read = read32(bar, dsp_banks[target_dsp] + 0x28);
+		uint32_t response_read = read32(bar,
+			dsp_banks[target_dsp] + 0x40 + 0x28);
 
 		__sync_synchronize();
 		if (command_read == command_position &&
-		    response_read == response_position && response_buffer[0] != 0xa5a5a5a5)
+		    response_read == response_position &&
+		    response_buffer[0] != (bill_probe ? 0 : 0xa5a5a5a5))
 			break;
 		nanosleep(&delay, NULL);
 	}
 	__sync_synchronize();
 	for (word = 0; word < selected_response_words; word++)
 		response[word] = response_buffer[word];
-	command_consumed = read32(bar, dsp_banks[0] + 0x28) == command_position;
-	response_consumed = read32(bar, dsp_banks[0] + 0x40 + 0x28) == response_position;
+	command_consumed = read32(bar, dsp_banks[target_dsp] + 0x28) ==
+		command_position;
+	response_consumed = read32(bar,
+		dsp_banks[target_dsp] + 0x40 + 0x28) == response_position;
+	non_target_indices_unchanged = true;
+	for (dsp = 0; bill_isolation && dsp < DSP_COUNT; dsp++) {
+		uint32_t command_base, response_base;
+
+		if (dsp == target_dsp)
+			continue;
+		command_base = dsp_banks[dsp];
+		response_base = command_base + 0x40;
+		if (read32(bar, command_base + 0x20) != indexes[dsp][0] ||
+		    read32(bar, command_base + 0x24) != indexes[dsp][0] ||
+		    read32(bar, command_base + 0x28) != indexes[dsp][0] ||
+		    read32(bar, response_base + 0x20) != indexes[dsp][1] ||
+		    read32(bar, response_base + 0x24) != indexes[dsp][1] ||
+		    read32(bar, response_base + 0x28) != indexes[dsp][1])
+			non_target_indices_unchanged = false;
+	}
 	header_matches = response[0] == selected_header;
+	bill_accepted = bill_probe && header_matches && response[1] == 0;
 	ready_after = all_ready(bar);
 	memory_bounded = memcmp(memory, snapshot, RESPONSE_PAGE * PAGE_SIZE_4K) == 0 &&
 		memcmp(memory + RESPONSE_PAGE * PAGE_SIZE_4K + selected_response_words * 4,
 		       snapshot + RESPONSE_PAGE * PAGE_SIZE_4K + selected_response_words * 4,
-		       PAGE_SIZE_4K - selected_response_words * 4) == 0;
+		       PAGE_SIZE_4K - selected_response_words * 4) == 0 &&
+		memcmp(memory + RESOURCE_PAGE * PAGE_SIZE_4K,
+		       snapshot + RESOURCE_PAGE * PAGE_SIZE_4K, PAGE_SIZE_4K) == 0;
 	if (!interrupted && command_consumed && response_consumed && header_matches &&
-	    ready_after && memory_bounded)
+	    ready_after && memory_bounded &&
+	    (!bill_probe || (bill_mutation ? !bill_accepted : bill_accepted)) &&
+	    non_target_indices_unchanged)
 		result = EXIT_SUCCESS;
 
 cleanup:
@@ -405,18 +551,46 @@ cleanup:
 	printf("{\n");
 	printf("  \"experiment\": \"%s\",\n",
 	       selected_command == SEQUENCE_COMMAND ? "016-connect-then-query-027" :
+	       bill_mutation ? "029-post-official-bill-integrity" :
+	       bill_isolation ? "030-eight-dsp-bill-isolation" :
+	       bill_probe ? "028-post-official-bill-12b" :
+	       post_official ? "027-post-official-query-026" :
 	       connect_first ? "015-connect-then-query-026" :
 	       "014-full-start-query-026");
-	printf("  \"command\": \"0x%08x\",\n", selected_command);
+	printf("  \"post_official_state_adopted\": %s,\n",
+	       post_official ? "true" : "false");
+	printf("  \"bill_target_submitted\": %s,\n",
+	       bill_probe ? "true" : "false");
+	printf("  \"target_dsp\": %u,\n", target_dsp);
+	printf("  \"bill_target_exact\": %s,\n",
+	       bill_probe && !bill_mutation ? "true" : "false");
+	if (bill_mutation)
+		printf("  \"single_bit_mutation_offset\": %lu,\n",
+		       bill_mutation_offset);
+	printf("  \"bill_accepted\": %s,\n",
+	       bill_accepted ? "true" : "false");
+	printf("  \"integrity_rejection_observed\": %s,\n",
+	       bill_mutation && header_matches && !bill_accepted ? "true" : "false");
+	printf("  \"non_target_ring_indices_unchanged\": %s,\n",
+	       non_target_indices_unchanged ? "true" : "false");
+	printf("  \"command\": \"0x%08x\",\n",
+	       bill_probe ? BILL_TARGET_COMMAND : selected_command);
 	printf("  \"expected_response_header\": \"0x%08x\",\n", selected_header);
 	printf("  \"callback_shadow\": \"0x%08x\",\n", CALLBACK_SHADOW);
-	printf("  \"query_shadow\": \"0x%08x\",\n", QUERY_SHADOW);
+	printf("  \"dsp0_response_shadow_constant\": \"0x%08x\",\n",
+	       RESPONSE_SHADOW);
+	printf("  \"dsp0_query_shadow_constant\": \"0x%08x\",\n",
+	       QUERY_SHADOW);
+	printf("  \"response_interrupt_shadow\": \"0x%08x\",\n",
+	       response_interrupt_shadow);
+	printf("  \"final_interrupt_shadow\": \"0x%08x\",\n",
+	       final_interrupt_shadow);
 	printf("  \"connect_sequence_requested\": %s,\n",
 	       connect_first ? "true" : "false");
 	printf("  \"connect_commands_consumed\": %s,\n",
 	       connect_consumed ? "true" : "false");
 	printf("  \"connect_polls_ms\": %u,\n", connect_poll);
-	printf("  \"polls_ms\": %u,\n", poll < POLL_COUNT ? poll : POLL_COUNT);
+	printf("  \"polls_ms\": %u,\n", poll);
 	printf("  \"command_consumed\": %s,\n", command_consumed ? "true" : "false");
 	printf("  \"response_consumed\": %s,\n", response_consumed ? "true" : "false");
 	printf("  \"response_words\": [");
@@ -447,6 +621,8 @@ cleanup:
 		munlock(memory, memory_size);
 		munmap(memory, memory_size);
 	}
+	if (resource_fd >= 0)
+		close(resource_fd);
 	free(snapshot);
 	if (container_set)
 		ioctl(group, VFIO_GROUP_UNSET_CONTAINER);

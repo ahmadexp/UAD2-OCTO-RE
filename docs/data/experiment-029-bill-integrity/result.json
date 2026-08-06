@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "experiment": "029-post-official-bill-integrity",
+  "exact_target_sha256": "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+  "exact_controls": {
+    "before_mutations_accepted": true,
+    "after_mutations_accepted": true,
+    "response_status": "0x00000000"
+  },
+  "layout": {
+    "target_envelope_bytes": 8,
+    "bill_header_bytes": 20,
+    "body_bytes": 432,
+    "preserved_prefix_bytes": 48,
+    "trailing_core_bytes": 384
+  },
+  "single_bit_trials": [
+    {"target_offset": 28, "body_offset": 0, "region": "preserved-prefix-first", "status": "0xf0010005", "public_host_error": -55, "accepted": false},
+    {"target_offset": 75, "body_offset": 47, "region": "preserved-prefix-last", "status": "0xf001000d", "public_host_error": -60, "accepted": false},
+    {"target_offset": 76, "body_offset": 48, "region": "trailing-core-first", "status": "0xf001000d", "public_host_error": -60, "accepted": false},
+    {"target_offset": 123, "body_offset": 95, "region": "trailing-core", "status": "0xf001000d", "public_host_error": -60, "accepted": false},
+    {"target_offset": 124, "body_offset": 96, "region": "trailing-core", "status": "0xf001000d", "public_host_error": -60, "accepted": false},
+    {"target_offset": 459, "body_offset": 431, "region": "trailing-core-last", "status": "0xf001000d", "public_host_error": -60, "accepted": false}
+  ],
+  "all_trials": {
+    "polls_ms": 1,
+    "command_consumed": true,
+    "response_consumed": true,
+    "writes_confined_to_response_prefix": true,
+    "all_dsps_ready": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true
+  },
+  "authentication_or_integrity_covers_prefix_and_core": true,
+  "algorithm_identified": false,
+  "success": true
+}

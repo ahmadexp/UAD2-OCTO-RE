@@ -84,17 +84,20 @@
   rather than peak floating-point rate alone. We specify matched workloads,
   correctness requirements, optimized baselines, measurement procedures, and
   a decision rule for identifying crossover regions. The present UAD stack
-  initializes all command and response rings, starts all eight DSP engines,
-  and recovers each engine independently, but it has not yet completed a
-  general-purpose program. Therefore, this version is a study design and does
-  not claim a measured UAD performance advantage. Its central contribution is
-  a falsifiable protocol that can support such a claim if, and only if, the
-  resulting data satisfy the preregistered criteria.
+  initializes all command and response rings, receives a valid Linux-controlled
+  framework response, and submits one integrity-protected resource independently
+  to all eight DSPs. The inner executable, relocation, entry-point, and buffer
+  rules remain unresolved, so it has not completed a general-purpose program.
+  Therefore, this version is a study design and does not claim a measured UAD
+  performance advantage. Its central contribution is a falsifiable protocol
+  that can support such a claim if, and only if, the resulting data satisfy the
+  preregistered criteria.
   \end{abstract}
 
-  \statusbox{The repository contains no completed UAD program and no GPU
-  benchmark. All comparative outcomes in this manuscript are hypotheses. A
-  results paper must replace this status with correctness-checked measurements.}
+  \statusbox{The repository contains no completed UAD program and no completed
+  UAD-versus-GPU comparison. All comparative outcomes in this manuscript are
+  hypotheses. A results paper must replace this status with
+  correctness-checked measurements.}
   \vspace{0.6em}
 \end{@twocolumnfalse}
 ]
@@ -147,8 +150,9 @@ The completed paper is intended to provide:
   statefulness, and GPU contention.
 \end{enumerate}
 
-At present, only the first contribution's transport and empty-engine recovery
-components are established \cite{uad-project}.
+At present, the first contribution's transport, valid-response, authenticated
+resource-loader targeting, and empty-engine recovery components are established.
+Entry-point execution and bounded program output are not \cite{uad-project}.
 
 \section{Research Questions and Claims}
 
@@ -208,9 +212,10 @@ Capability & Status & Interpretation \\
 Exact PCI endpoint and isolated IOMMU group & Confirmed & The tested card can be identified and its DMA can be contained. \\
 All-eight ring and DMA transport startup & Confirmed & All 16 rings and 64 pages can be published and recovered. \\
 Per-DSP reset on an empty transport & Confirmed & Each engine can be pulsed and returned to its baseline without changing the other seven. \\
-Valid runtime response & Confirmed, partial & The official plug-in path returns a stable 768-entry table and exact intermediate successes for two form-zero resources. \\
+Valid runtime response & Confirmed & Linux query 026 returns the exact five-dword response form in 1 ms; the official path also returns a decoded 768-entry authorization table. \\
+Authenticated resource transport & Confirmed & Exact resource \texttt{0x12b} succeeds on DSP0 through DSP7; sampled one-bit changes across its opaque body are rejected. \\
 General-purpose program and bounded output & Not achieved & No UAD workload can yet be compared for correctness or speed. \\
-GPU baseline and comparison dataset & Absent & No GPU model, CUDA stack, timing distribution, power trace, or result file exists. \\
+GPU comparison dataset & Not achieved & A preliminary affine baseline does not provide a matched UAD result, power trace, or crossover dataset. \\
 \bottomrule
 \end{tabularx}
 \end{table*}
@@ -226,13 +231,22 @@ consumption is not counted as a valid runtime response or program result
 
 A subsequent official plug-in-host experiment crossed that boundary. Four
 responses used header \texttt{0x80030302}, carried request-correlated tokens,
-and shared one 768-dword body containing four state values. The same run
-returned the statically predicted \texttt{0x80070004} intermediate-success form
-for form-zero resources \texttt{0x120} and \texttt{0xd0}, including exact
-resource IDs and envelope command words. RealVerb-Pro instantiated but the
-official host disabled it with error \texttt{-38}, the recovered all-zero
-resource-response result. These observations validate partial DSP-side resource
-acceptance, not a complete or correct program \cite{uad-project}.
+and shared one 768-dword body. Static analysis maps its wire values to Demo not
+started, Authorized, Authorized, and Auth update required. The two authorized
+encodings collapse to the same host-visible state. RealVerb-Pro then reached an
+all-zero response for its first captured object, resource \texttt{0x12b}.
+
+Linux later adopted the resident framework with fresh IOMMU mappings. Query
+\texttt{0x00260001} returned header \texttt{0x800c0005} in 1 ms. The exact
+460-byte \texttt{0x12b} object returned
+\texttt{80070004 00000000 0000012b 00010073}, also in 1 ms. Single-bit changes
+at both ends of its 48-byte preserved prefix and at four locations in its
+384-byte trailing core all produced structured rejection statuses. Finally,
+the unchanged object succeeded independently on DSP0 through DSP7 with
+target-specific interrupt masks and no non-target ring-index movement. These
+results prove response transport, whole-body integrity enforcement, and loader
+targeting. They do not reveal the clear executable or activate an entry point
+\cite{uad-project}.
 
 The processor identification is now direct at the component level. All eight
 packages visibly carry \texttt{ADSP-21469} and \texttt{KBCZ-00}; the central
@@ -448,9 +462,12 @@ reset-isolation advantage is not described as faster computation.
 
 No comparative result exists yet. The current API intentionally returns
 \texttt{-EOPNOTSUPP} for buffer allocation, program loading, submission, and
-waiting. The next evidence gate is a harmless DSP0 heartbeat followed by the
-affine transform. The results section must remain empty of performance claims
-until those gates pass.
+waiting. A valid response and authenticated resource completion are no longer
+the blockers. The remaining gate is a decoded OCTO executable with proven
+segments, relocations, entry point, reserved ranges, and program-visible buffer
+semantics. It must first run as a bounded DSP0 heartbeat, followed by the affine
+transform. The results section must remain empty of performance claims until
+those gates pass.
 
 When measurements are available, the paper should present four views:
 
@@ -469,8 +486,11 @@ removed.
 \section{Isolation and Robustness}
 
 The OCTO exposes eight engines with independently exercised empty-transport
-reset paths. Program-level isolation is not yet proven. After correctness and
-single-DSP performance are established, each DSP is tested under normal
+reset paths. Authenticated loader targeting is now proven on all eight engines:
+the selected engine consumes the exact object while all seven non-target ring
+index sets remain unchanged. Program-level execution isolation is not yet
+proven. After correctness and single-DSP performance are established, each DSP
+is tested under normal
 completion, program timeout, response timeout, process exit, malformed program
 rejection, and an IOMMU-contained fault. Status, ring indices, and output
 buffers for all other DSPs are recorded before and after each case.
@@ -545,11 +565,12 @@ without converting an architectural intuition into an unsupported result.
 
 The paper is ready to accumulate comparative measurements only after a harmless
 program produces bounded output and the result survives reset and IOMMU
-cleanup. Valid runtime and resource-success responses have now been observed,
-but the complete official plug-in load still terminates in the all-zero
-response path. Until that later boundary is resolved, the defensible finding is
-the recovered transport, partial loader validation, and isolation foundation,
-not performance superiority.
+cleanup. Valid Linux runtime and resource-success responses have now been
+observed, body-wide integrity enforcement is demonstrated, and authenticated
+loader targeting passes on all eight DSPs. Until the inner executable,
+relocation, entry-point, and buffer rules are recovered, the defensible finding
+is the transport, resource-loader, and isolation foundation, not performance
+superiority.
 
 {\footnotesize
 \bibliographystyle{plain}

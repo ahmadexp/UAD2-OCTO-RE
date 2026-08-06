@@ -93,8 +93,43 @@ python3 lab/windows/capture_response_boundary.py \
 The guest remains paused so the operator can inspect additional state before
 issuing `cont` or an orderly shutdown through the QEMU monitor.
 
+For a complete plug-in transaction, `capture_response_sequence.py` begins at
+the current trace tail and pauses QEMU at every subsequent DSP0 command-host
+write and response-read transition. A command boundary captures newly posted
+bounded DMA objects before the official driver releases or zeroes them. A
+response boundary captures every consumed response target. The tool writes
+hashes, outer `Bill` and envelope metadata, ring indices, and response
+classifications to JSON. Raw command objects remain in the private output
+directory and must not be committed.
+
+Response targets are sampled while the guest remains paused at 0, 5, and 100
+ms after the target capture begins. The response ring and target are saved
+before unrelated command pages. The total pause must remain below the official
+loader's recovered 600 ms completion wait, otherwise the observer changes the
+transaction it is intended to measure.
+
+```bash
+python3 lab/windows/capture_response_sequence.py \
+  /absolute/path/qemu-vfio.trace \
+  /absolute/path/response-sequence \
+  --monitor-port 4444 --max-boundaries 64 --timeout 300
+```
+
+Run it after the runtime is idle and immediately before instantiating the one
+authorized plug-in under test. A capture failure deliberately leaves QEMU
+paused so potentially reused buffers are not lost.
+
 The executed reference results and their public evidence boundaries are
 documented in
 [`docs/experiment-023-official-windows-reference.md`](../../docs/experiment-023-official-windows-reference.md)
 and
 [`docs/experiment-025-official-runtime-response.md`](../../docs/experiment-025-official-runtime-response.md).
+
+## Authorization-state probe
+
+`dump_auth_states.c` is a read-only probe for the official Windows client
+library. It calls the same virtual method used by UADPerfMon to retrieve the
+20-byte per-product authorization records and prints state counts plus the
+non-default records. Build it as a 64-bit Windows executable and run it only
+with the matching installed `UAD2DriverClient.dll`. It does not update an
+authorization, submit a plug-in resource, or write a device register.

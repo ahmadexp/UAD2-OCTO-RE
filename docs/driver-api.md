@@ -113,8 +113,11 @@ kernel changes.
 - `kernel/uad2_compute.c`: PCI transport and guarded device operations
 - `lib/uad2ctl.c`: diagnostic command-line client
 
-The next ABI extension requires a real response from the device. Only then can
-buffer handles, program handles, job IDs, completion waits, and ownership rules
-be assigned kernel ioctls without baking guesses into a public interface.
+Experiment 027 now supplies a real Linux-controlled response, and Experiment
+030 supplies all-eight authenticated loader targeting. Those results validate
+the transport but still do not define a program-visible IOVA, entry point, job
+request, or completion record. Buffer handles, program handles, job IDs, and
+wait ioctls therefore remain disabled rather than baking an encrypted vendor
+resource ABI into a general-purpose interface.
 The complete evidence gates and all-eight fault matrix are in
 [`program-execution-gates.md`](program-execution-gates.md).

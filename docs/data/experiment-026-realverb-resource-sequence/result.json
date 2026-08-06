@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "experiment": "026-realverb-resource-sequence",
+  "date": "2026-08-05",
+  "private_capture_label": "experiment-029-deadline-safe-sequence",
+  "target": {
+    "pci_id": "1a00:0002",
+    "subsystem_id": "1a00:0005",
+    "dsp_count": 8,
+    "dsp_model": "ADSP-21469 KBCZ-00",
+    "uad_version": "11.0.1.40206"
+  },
+  "method": {
+    "response_samples_requested_ms": [0, 5, 100],
+    "official_loader_wait_ms": 600,
+    "maximum_observed_sample_ms": 143.449,
+    "all_samples_inside_official_deadline": true,
+    "resource_response_descriptors": 26,
+    "resource_passes": 2,
+    "vendor_payload_bytes_published": false
+  },
+  "first_resource": {
+    "resource_id": "0x0000012b",
+    "declared_body_bytes": 432,
+    "command_target_bytes": 460,
+    "payload_form": 0,
+    "allocation_offset_dwords": "0x000e0000",
+    "command_word": "0x00010073",
+    "command_target_sha256": "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+    "response_samples_ms": [40.997, 82.261, 141.023],
+    "response_kind": "all-zero",
+    "response_target_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+    "host_result": -38
+  },
+  "resource_order": [
+    "0x0000012b", "0x000000eb", "0x000000c1", "0x000000a5",
+    "0x00000120", "0x000000bd", "0x0000011f", "0x000000d0",
+    "0x000000f9", "0x000000bf", "0x0000011e", "0x0000011d",
+    "0x000000d1"
+  ],
+  "resource_command_target_sha256": {
+    "0x0000012b": "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+    "0x000000eb": "6d91985233b00edfad9c3e93c17bb75c7e51922d11076fec03d3ab23f3c99e21",
+    "0x000000c1": "87512f74b674462241144deca658f59b165cee7e3d5635b1e0864ffecd284fb1",
+    "0x000000a5": "0c3561eb68e83169d38e58cd70d6bc9464afbd4efc2b3ac34bc339e19cffe79a",
+    "0x00000120": "e2f918628e4c4882e142113a86f3ee9fcf8034a5ec48c35b663bf0f839f60ed0",
+    "0x000000bd": "bd62be051299bfea36e54119643fea6089423aea6a0b060b8269d4f572c2c78e",
+    "0x0000011f": "203be752a4d3fd8a11739484d3ad0af9ac26359fd1bec5850ef38dd0e1fd45ac",
+    "0x000000d0": "f4c041ab7b0aa19ab9f32235e1b51f4db5b3f7f88fb3f526254b2a906ff96123",
+    "0x000000f9": "07177bd6b15ba0dceafad3ba3d12147f0f87040cdd0b291abb1bca9cfdeb5783",
+    "0x000000bf": "884f3682122e2dad85895eda6df3545c657c8b0dc2c65d71ddd68a3ae130e7d5",
+    "0x0000011e": "8e6f5a294bde687a7eeeab2d5a447666d289080d666c63f5e72724531caa6106",
+    "0x0000011d": "ea339b46f1a8d871ac8122d01ce151289a415aa0fd23e6ff0d0840411338667b",
+    "0x000000d1": "17d79a7db9af334375b2f8b68f9640413f08becb04f52f59e4b8f3bf2b702914"
+  },
+  "authorization_response": {
+    "header": "0x80030302",
+    "token": "0x37518ec0",
+    "declared_dwords": 770,
+    "table_entries": 768,
+    "target_sha256": "932afa4f9bc1e46120553e5e8af87142dea1088067f75097fb25e3dd2fd578ec"
+  },
+  "trace": {
+    "sha256": "30a634675a64af5cd2a4711d8ee0631822d50fdb81ff8c2d2ecfda5d62d35b75",
+    "private_path": "/home/user/winvm/experiment-029-deadline-safe-sequence/qemu-vfio.trace"
+  },
+  "recovery": {
+    "qemu_stopped": true,
+    "pci_driver_bound_after_shutdown": false,
+    "pci_enable_after_shutdown": 0,
+    "pci_command_after_shutdown": "0x0002"
+  }
+}

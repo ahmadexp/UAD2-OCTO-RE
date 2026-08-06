@@ -22,22 +22,21 @@ Rev 5 card. All 16 four-page rings can be published through 64 IOMMU-contained
 pages, every DSP engine can be enabled, official connect and query commands are
 dequeued, and explicit cleanup plus VFIO reset recovers the cold state.
 
-General-purpose DSP execution is **not yet achieved**. An isolated official
-Windows reference run completed the exact OCTO firmware update's full
-625-descriptor payload chain, survived an RTC-backed cold power cycle, and
-started all eight DSP transports with the signed driver. A later official
-plug-in-host run produced four repeatable 770-dword card responses and two
-exact `Bill` intermediate-success responses for resources `0x120` and `0xd0`.
-This is the first dynamically validated OCTO resource-loader success.
+General-purpose DSP execution is **not yet achieved**, but the response and
+authenticated loader paths now work from Linux. After safely adopting a
+framework initialized by the official driver, Linux received query 026's exact
+`0x800c0005` response and the exact first RealVerb `Bill` object's
+`0x80070004` success, both in 1 ms. The same authenticated object was accepted
+independently by DSP0 through DSP7 while every non-target ring index remained
+unchanged.
 
-RealVerb-Pro instantiated but was disabled by the official host with error
-`-38`, which the recovered parser maps to an all-zero resource response. The
-ordinary `Bill` envelope, form-zero copy, allocator offsets, and success parser
-are therefore live-validated, but the multi-resource program did not complete
-and its DSP-side payloads remain opaque. Digest, checksum, compression, and
-block-correlation tests reject several simple inner formats. The next decisive
-step is the first failing resource boundary in that lawful sequence, followed
-by a decoded target-specific harmless program.
+Controlled one-bit changes at both ends of the object's 48-byte prefix and
+384-byte trailing core were all rejected with structured `0xf001` errors;
+unchanged controls were accepted before and after. Device-side integrity or
+authentication therefore covers the complete opaque body. This explains why
+the repository cannot honestly substitute a new heartbeat program yet: the
+cipher or authentication algorithm, clear executable, relocations, entry
+point, and program-visible buffer ABI remain unknown.
 
 The exact UAD 11.0.1 PCIe loader is now hash-locked separately. Its assembly
 confirms the extended header, physical 4 KiB payload chain, four-dword response
@@ -66,7 +65,7 @@ is documented but intentionally unexecuted.
 | DSP0 DMA and endpoint reset | Confirmed | Experiments 002 and 003 |
 | Complete all-eight ring/DMA startup | Confirmed | [`docs/experiment-013-full-octo-start.md`](docs/experiment-013-full-octo-start.md) |
 | Host command dequeue | Confirmed | [`docs/experiment-014-016-full-start-queries.md`](docs/experiment-014-016-full-start-queries.md) |
-| Card-written response content | Confirmed, authorization table and `Bill` success | [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md) |
+| Card-written response content | Confirmed from official host and Linux | [`docs/experiment-027-post-official-linux-response.md`](docs/experiment-027-post-official-linux-response.md) |
 | Official startup order | Recovered statically | [`docs/device-startup-sequence.md`](docs/device-startup-sequence.md) |
 | Four-page DSP0 ring order | Confirmed with DMA disabled | [`docs/experiment-011-official-ring-initializer.md`](docs/experiment-011-official-ring-initializer.md) |
 | Shared 4 MiB audio tables | Proven inapplicable to OCTO | [`docs/experiment-012-capability-and-audio-snapshot.md`](docs/experiment-012-capability-and-audio-snapshot.md) |
@@ -75,13 +74,14 @@ is documented but intentionally unexecuted.
 | Official Windows lifecycle | Signed OCTO driver OK, all 16 rings published, exact response boundaries captured | [`docs/experiment-023-official-windows-reference.md`](docs/experiment-023-official-windows-reference.md) |
 | Full firmware family | 47 FBUT/GBUT/HBUT wrappers inventoried; inner encoding unresolved | [`docs/firmware-family-inventory.md`](docs/firmware-family-inventory.md) |
 | `Bill` DSP resource outer format and transform | Recovered statically | [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md) |
-| `Bill` DSP resource acceptance | Two form-zero intermediate successes on OCTO; complete plug-in still failed `-38` | [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md) |
+| `Bill` DSP resource acceptance | Exact `0x12b` success from Linux on all eight DSPs | [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md) |
+| `Bill` inner integrity | Prefix and core one-bit changes rejected; algorithm unresolved | [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md) |
 | Four DSP resource pools and reservations | Confirmed across all eight DSPs | [`docs/experiment-020-resource-pools.md`](docs/experiment-020-resource-pools.md) |
 | Framework property dispatch | All 13 host-side cases recovered | [`docs/framework-property-map.md`](docs/framework-property-map.md) |
 | Official plug-in resource inventory | 87 instances, 69 unique hashes | [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md) |
 | Official system-information record | Six fields assigned; live OCTO response missing | [`docs/system-information-record.md`](docs/system-information-record.md) |
 | Per-DSP reset isolation | Confirmed for all eight engines | [`docs/experiment-017-per-dsp-reset-isolation.md`](docs/experiment-017-per-dsp-reset-isolation.md) |
-| DSP program loading | No executable program attempted | [`docs/roadmap.md`](docs/roadmap.md) |
+| DSP program loading | Authenticated resource accepted; entry-point execution not attempted | [`docs/roadmap.md`](docs/roadmap.md) |
 | Generic compute API | Transport and status implemented; jobs gated | [`docs/driver-api.md`](docs/driver-api.md) |
 | Kernel transport hardware run | Confirmed across all eight DSP engines | [`docs/experiment-019-kernel-transport.md`](docs/experiment-019-kernel-transport.md) |
 
@@ -124,6 +124,10 @@ these tools on an older profile.
 - [`docs/runtime-response-state.md`](docs/runtime-response-state.md): explicit boot/runtime state evidence
 - [`docs/experiment-023-official-windows-reference.md`](docs/experiment-023-official-windows-reference.md): signed Windows lifecycle and firmware transaction
 - [`docs/experiment-025-official-runtime-response.md`](docs/experiment-025-official-runtime-response.md): nonzero responses and partial RealVerb resource load
+- [`docs/authorization-states.md`](docs/authorization-states.md): exact authorization wire-state meanings
+- [`docs/experiment-027-post-official-linux-response.md`](docs/experiment-027-post-official-linux-response.md): first valid Linux-controlled framework response
+- [`docs/experiment-029-bill-integrity.md`](docs/experiment-029-bill-integrity.md): device-side Bill integrity differentials
+- [`docs/experiment-030-eight-dsp-bill-isolation.md`](docs/experiment-030-eight-dsp-bill-isolation.md): all-eight authenticated loader targeting
 - [`docs/system-information-record.md`](docs/system-information-record.md): recovered official boot and version record fields
 - [`docs/bill-resource-analysis.md`](docs/bill-resource-analysis.md): DSP resource parser, transform, and allocator
 - [`docs/official-plugin-resource-inventory.md`](docs/official-plugin-resource-inventory.md): official plug-in resource inventory
@@ -208,9 +212,19 @@ not justified.
     Every command was consumed, no response was posted, all canaries held, and
     explicit recovery passed.
 25. Run the official plug-in host. Four nonzero authorization-table candidates
-    and two exact `Bill` intermediate successes were captured. RealVerb-Pro
+    and two exact `Bill` resource successes were captured. RealVerb-Pro
     instantiated but was disabled with the official all-zero-response error
     `-38`, so complete DSP program execution remains unproven.
+26. Capture every RealVerb resource boundary and identify the first all-zero
+    target as exact resource `0x12b`.
+27. Safely bridge the resident framework to Linux and receive query 026's
+    `0x800c0005` response in 1 ms.
+28. Submit the hash-locked first RealVerb object from Linux and receive exact
+    `0x80070004` success in 1 ms.
+29. Flip one bit at six prefix and core positions. Every mutation is rejected,
+    while exact controls succeed before and after.
+30. Submit the exact authenticated object independently to DSP0 through DSP7.
+    All eight accept it, with non-target ring indices unchanged.
 
 Every experiment has a Markdown procedure and, where executed, a JSON result
 under [`docs/`](docs). Experiment 008's original interpretation was revised:
@@ -256,6 +270,15 @@ The ordinary DSP resource loader and completion parser can be verified with:
 
 ```bash
 python3 tools/inspect_bill_loader.py /path/to/UAD2System.sys
+```
+
+Authorization-state decoding and the fixed public pre-completion status map
+can be verified separately:
+
+```bash
+python3 tools/inspect_authorization_states.py \
+  /path/to/UADPerfMon /path/to/UAD2System.sys /path/to/UAD2Pcie.sys
+python3 tools/inspect_public_bill_status.py /path/to/public/uad2.kext
 ```
 
 The public symbolized macOS driver can be checked independently:

@@ -103,8 +103,10 @@ offset `0x4000` when the runtime pool is otherwise empty.
 The payload copy loop uses at most `0x400` dwords per DMA object, so every copy
 is bounded to 4 KiB. After queuing the response and command objects, the
 ordinary wait mode allows ten attempts with a 600 ms interval. During that
-loop the driver also issues operation 13 with a four-byte output. The meaning
-of that four-byte status remains unnamed.
+loop the driver also calls `CPcieDSP::GetProperty` with ID 13 and a four-byte
+output. The hash-locked public driver dispatches only property IDs 0 through
+12, so ID 13 takes the unsupported cleanup branch and emits no DSP command.
+It is a host-side wait-loop poll, not a hidden resource-status transaction.
 
 Two response forms can terminate the wait path:
 
@@ -127,7 +129,9 @@ The final low status-code mapping is exact:
 
 An all-zero four-dword response maps to `-38`; any other malformed response
 maps to `-50`. A separate earlier response branch recognizes status class
-`0xf0010000` in word one. Its low-code meanings are not yet named.
+`0xf0010000` in word one. The public host maps low codes `0x0005` and
+`0x000d` to host results `-55` and `-60`; their DSP-side semantic names remain
+unknown.
 
 Experiment 025 received the intermediate success form twice from this OCTO:
 
@@ -141,6 +145,10 @@ use payload form zero, so these captures dynamically confirm the byte-for-byte
 copy and the loader's intermediate-success parser. The enclosing RealVerb-Pro
 load later failed with host result `-38`, so they do not prove complete program
 execution.
+
+Experiment 028 added a Linux-controlled success for the exact first RealVerb
+object, resource `0x12b` at offset `0xe0000`. Experiment 030 repeated that
+exact success independently on all eight DSPs.
 
 The offline tool can construct the exact envelope when a known allocation
 offset and pool direction are supplied:
@@ -163,6 +171,21 @@ objects are copied in full; for other forms, bytes before the replaced tail are
 copied unchanged. Any segment table, relocation data, entry point, or
 executable authentication therefore belongs to the opaque body or to the
 DSP-side consumer.
+
+The fixed public driver audit closes a tempting host-side shortcut. Its
+`CResource` and `CResourcePool` paths validate outer metadata, allocate a pool
+range, copy or replace bytes, and wait for the four-dword completion. They do
+not return a decoded body to the host. The related public Linux source likewise
+submits captured `Bill` byte arrays as opaque resources. Its human-readable
+program labels, module-activation words, and SRAM addresses came from separate
+runtime captures, not from an inner-resource decoder. Finally, the operation-13
+wait-loop property call is unsupported by the public PCIe property dispatcher
+and sends no DSP command. It cannot be repurposed as a decoded-memory readback.
+
+This rules out recovering segments, relocations, or entry points by calling an
+unnoticed host parser. The remaining evidence path is the DSP-side consumer:
+a lawful post-decode memory trace, a documented debug interface, or a clear
+vendor or development artifact for the exact ADSP-21469 framework.
 
 Prior captures for related Apollo hardware include resource IDs
 `0x020000a5`, `0x020000c2`, `0x020000db`, `0x020000eb`, and `0x0200012b`.
@@ -233,6 +256,13 @@ or another keyed encoding, but do not identify which. In particular, they do
 not reveal a key, authentication rule, relocation table, segment table, or
 entry point. Those rules remain on the DSP-side consumer path.
 
+Experiment 029 adds a dynamic constraint. For resource `0x12b`, the 432-byte
+body is a 48-byte preserved prefix plus a 384-byte trailing core. One-bit
+changes at the first and last prefix bytes and at the first, last, and two
+interior core positions were all rejected in 1 ms. The unchanged object was
+accepted before and after. Device-side integrity or authentication therefore
+covers both regions, even though the algorithm and cleartext remain unknown.
+
 ## Proven and unresolved
 
 Confirmed statically and, where noted, dynamically:
@@ -245,14 +275,16 @@ Confirmed statically and, where noted, dynamically:
   final status mapping, and malformed-response errors.
 - Absence of host-side cryptographic verification in this parser.
 - Resource transport response header and status class.
-- Two official form-zero envelopes, allocation offsets, and intermediate
-  successes on the physical OCTO.
+- Exact official form-zero successes on the physical OCTO, including Linux
+  submission of `0x12b` independently to all eight DSPs.
+- Dynamic integrity or authentication coverage over both regions of the
+  `0x12b` body.
 
 Still unresolved:
 
 - The preserved inner-core encoding.
 - Segment and relocation records inside that core, if any.
-- DSP-side validation or authentication.
+- Integrity or authentication algorithm and key source.
 - Entry points and inner memory reservations for a complete OCTO program.
 
 The loader findings are independently checked by the hash-locked verifier:

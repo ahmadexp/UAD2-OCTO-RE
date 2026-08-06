@@ -23,6 +23,7 @@ card recovered. It does not imply that later or broader operations are safe.
 - [`system-information-record.md`](system-information-record.md): official 168-byte host-built record, lifecycle gate, and exact BAR sources
 - [`official-plugin-resource-inventory.md`](official-plugin-resource-inventory.md): metadata-only inventory of official `Bill` resources
 - [`bill-resource-analysis.md`](bill-resource-analysis.md): ordinary DSP resource format, conditional transform, and runtime allocator
+- [`authorization-states.md`](authorization-states.md): exact four-wire-value decoder and official display meanings
 - [`driver-api.md`](driver-api.md): Linux transport module, userspace API, and capability boundary
 - [`program-execution-gates.md`](program-execution-gates.md): harmless-program, API, recovery, and all-eight isolation criteria
 - [`roadmap.md`](roadmap.md): milestones toward general-purpose DSP work
@@ -66,6 +67,11 @@ card recovered. It does not imply that later or broader operations are safe.
 | 023 | [`experiment-023-official-windows-reference.md`](experiment-023-official-windows-reference.md) | [`sanitized result`](data/experiment-023-official-windows-reference/result.json) | Official full HBUT chain consumed, RTC cold recovery passed, all 16 rings published, response targets stayed zero |
 | 024 | [`experiment-024-post-update-query.md`](experiment-024-post-update-query.md) | [`experiment-024-result.json`](experiment-024-result.json) | Post-update connect and query consumed, no response, exact recovery |
 | 025 | [`experiment-025-official-runtime-response.md`](experiment-025-official-runtime-response.md) | [`sanitized result`](data/experiment-025-official-runtime-response/result.json) | First nonzero OCTO responses and two `Bill` successes; RealVerb later disabled on `-38` |
+| 026 | [`experiment-026-realverb-resource-sequence.md`](experiment-026-realverb-resource-sequence.md) | [`sanitized result`](data/experiment-026-realverb-resource-sequence/result.json) | First zero RealVerb target identified as exact resource `0x12b` |
+| 027 | [`experiment-027-post-official-linux-response.md`](experiment-027-post-official-linux-response.md) | [`sanitized result`](data/experiment-027-post-official-linux-response/result.json) | Linux adopted the resident framework and received query 026 response in 1 ms |
+| 028 | [`experiment-028-post-official-bill-12b.md`](experiment-028-post-official-bill-12b.md) | [`sanitized result`](data/experiment-028-post-official-bill-12b/result.json) | Exact first RealVerb object accepted from Linux in 1 ms |
+| 029 | [`experiment-029-bill-integrity.md`](experiment-029-bill-integrity.md) | [`sanitized result`](data/experiment-029-bill-integrity/result.json) | One-bit prefix and core changes rejected; device-side integrity proven |
+| 030 | [`experiment-030-eight-dsp-bill-isolation.md`](experiment-030-eight-dsp-bill-isolation.md) | [`sanitized result`](data/experiment-030-eight-dsp-bill-isolation/result.json) | Exact authenticated resource accepted independently on all eight DSPs with non-target rings unchanged |
 
 Experiment 010 has a separate
 [`independent recovery capture`](experiment-010-independent-recovery.json).

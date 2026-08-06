@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "experiment": "030-eight-dsp-bill-isolation",
+  "exact_target_sha256": "0c353512fb27ed961b4e0746de7f1bbc462447f6e2c0263bc6209cda7b7718d0",
+  "resource_id": "0x0000012b",
+  "response": ["0x80070004", "0x00000000", "0x0000012b", "0x00010073"],
+  "trials": [
+    {"target_dsp": 0, "final_interrupt_shadow": "0xcccccccf", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 1, "final_interrupt_shadow": "0xccccccfc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 2, "final_interrupt_shadow": "0xcccccfcc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 3, "final_interrupt_shadow": "0xccccfccc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 4, "final_interrupt_shadow": "0xcccfcccc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 5, "final_interrupt_shadow": "0xccfccccc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 6, "final_interrupt_shadow": "0xcfcccccc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true},
+    {"target_dsp": 7, "final_interrupt_shadow": "0xfccccccc", "polls_ms": 1, "accepted": true, "non_target_ring_indices_unchanged": true}
+  ],
+  "all_trials": {
+    "command_consumed": true,
+    "response_consumed": true,
+    "writes_confined_to_response_prefix": true,
+    "all_dsps_ready": true,
+    "explicit_restore_succeeded": true,
+    "vfio_reset_recovered": true
+  },
+  "authenticated_resource_loader_isolation": true,
+  "target_specific_interrupt_masks": true,
+  "entry_point_execution_isolation": false,
+  "success": true
+}

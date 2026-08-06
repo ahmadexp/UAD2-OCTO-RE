@@ -18,8 +18,8 @@ exact OCTO target:
 | entry point and call ABI | unknown |
 | runtime-reserved ranges | four outer pools observed; allocations inside an opaque program unknown |
 | stack, interrupt, and circular-buffer reservations | unknown |
-| authentication or integrity rule | unknown |
-| program-load command and success completion | related Apollo evidence only, conflicting constants |
+| authentication or integrity rule | enforcement proven across the 48-byte prefix and 384-byte core; algorithm and key source unknown |
+| program-resource load and success completion | exact OCTO `0x12b` envelope and `0x80070004` success proven from Linux on all eight DSPs; module activation remains unknown |
 | unload and failure recovery | empty-engine reset proven, loaded-program recovery unproven |
 
 The first payload should do only one bounded action: increment a counter in a
@@ -53,7 +53,7 @@ evidence milestones, not additional version-1 UAPI constants:
 
 | Capability | Evidence gate |
 |---|---|
-| `RUNTIME_RESPONSE` | one decoded benign official response |
+| `RUNTIME_RESPONSE` | achieved by query 026 in Experiment 027 |
 | `PROGRAM_VALIDATE` | offline parser rejects malformed segments and relocations |
 | `PROGRAM_LOAD_DSP0` | exact load ABI and success completion |
 | `DMA_BUFFER` | program-visible IOVA width, alignment, lifetime, and direction |
@@ -68,6 +68,9 @@ with one open file, and revoked on close, timeout, reset, or process death.
 ## Eight-DSP isolation matrix
 
 Program-level isolation requires more than the completed empty-reset test.
+Experiment 030 also proves authenticated loader targeting across all eight
+engines: only the selected engine's ring indices advance. The matrix below
+still requires an activated program.
 For target DSP `i`, each test records status for all eight engines before,
 during, and after the fault:
 
